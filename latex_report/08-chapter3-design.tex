@@ -1,0 +1,301 @@
+% ═══════════════════════════════════════════════════════════════
+%  Chapter 3 — Solution Design
+% ═══════════════════════════════════════════════════════════════
+%  Design chapter: architecture of the audit tool (Part A) and the
+%  synchronisation strategy (Part B). Diagrams only — no source code.
+%
+\chapter{Solution Design}
+\label{chap:design}
+
+\section*{Chapter Introduction}
+
+The preceding chapter established, through a systematic audit and a structured root cause analysis, that the misalignment of ARYZTA's Snowflake environments stemmed from a small number of interlocking deficiencies: the absence of version control, the lack of a deployment governance framework, and the normalisation of direct production changes. Crucially, that analysis also revealed a more immediate obstacle---the absence of any reliable instrument to \emph{measure} the extent of the drift. Before a synchronisation strategy could be designed, the team required an objective, repeatable, and above all \emph{safe} means of comparing the three environments.
+
+This chapter presents the design of the solution in two complementary parts. \textbf{Part~A} describes the architecture of the \textbf{Snowflake Environment Comparator}, a purpose-built, strictly read-only application developed to audit and quantify the discrepancies between any two Snowflake environments. \textbf{Part~B} describes the \textbf{multi-environment synchronisation strategy}, which leverages Snowflake Secure Data Sharing and a scheduled stored procedure to restore and maintain alignment of the lower environments with \texttt{PROD}.
+
+The two parts are deliberately sequenced to mirror the engineering logic of the project: one cannot remediate what one cannot measure. The comparator provides the diagnostic foundation---a trustworthy, auditable picture of the divergence---while the synchronisation mechanism provides the corrective action. Throughout, the design choices are justified with reference to the constraints identified in Chapters~1 and~2, in particular the over-riding requirement that no diagnostic activity may itself introduce risk to the production platform. The realisation of these designs---their concrete implementation, deployment, and the results obtained---is the subject of Chapter~4.
+
+% ─────────────────────────────────────────────────────────────
+\section{Solution Overview}
+\label{sec:solution-overview}
+
+The solution comprises two engineered artefacts that together address objectives O1 through O3 defined in Chapter~1 (environment audit, root cause analysis, and synchronisation strategy). Their roles are summarised in Table~\ref{tab:design-objectives}.
+
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.6}
+\setlength{\tabcolsep}{8pt}
+\begin{tabularx}{\textwidth}{
+>{\raggedright\arraybackslash\bfseries}p{4cm}
+>{\raggedright\arraybackslash}p{4.2cm}
+>{\raggedright\arraybackslash}X}
+\toprule
+\rowcolor{ibmblue!15}
+\textbf{Artefact} &
+\textbf{Primary Role} &
+\textbf{Objectives Addressed} \\
+\midrule
+Snowflake Environment Comparator &
+Diagnosis and read-only comparison of Snowflake environments &
+$\bullet$ \textbf{O1}: Audit of schema and data differences \newline
+$\bullet$ \textbf{O2}: Identification and quantification of environment drift \\
+Synchronisation Strategy &
+Controlled remediation using Secure Data Sharing &
+$\bullet$ \textbf{O3}: Synchronisation of \texttt{DEV} and \texttt{UAT} with \texttt{PROD} \\
+\bottomrule
+\end{tabularx}
+\caption{Alignment between the developed artefacts and the project objectives.}
+\label{tab:design-objectives}
+\end{table}
+
+The design is governed by four principles that recur throughout this chapter:
+
+\begin{itemize}
+  \item \textbf{Safety by construction.} The diagnostic tool must be incapable of altering any Snowflake environment. Read-only behaviour is enforced structurally rather than relied upon as a convention.
+  \item \textbf{Reproducibility.} Both the audit and the synchronisation must yield deterministic, repeatable results so that drift can be tracked over time and remediation can be re-applied safely.
+  \item \textbf{Auditability.} Every comparison run and every synchronisation action is persisted to a queryable record, providing the traceability that the previous management regime lacked.
+  \item \textbf{Least intrusion on production.} \texttt{PROD} is treated as the authoritative source of truth; the synchronisation reads from it without copying or modifying its data, and the audit never writes to it at all.
+\end{itemize}
+
+% ═══════════════════════════════════════════════════════════════
+\section{Audit and Comparison Tool Architecture}
+\label{sec:comparator}
+
+The \textbf{Snowflake Environment Comparator} is a single-user application that compares two Snowflake environments---designated \emph{source} and \emph{target}---and reports, for every database object in scope, one of four statuses: \texttt{MATCH}, \texttt{MISSING\_IN\_SOURCE}, \texttt{MISSING\_IN\_TARGET}, or \texttt{DRIFT}. It produces a match-rate scorecard, supports drill-down to the level of individual attributes, and retains a queryable history of past runs. The application is implemented as a Streamlit interface over a layered Python codebase, with all comparison state persisted locally in an SQLite database accessed through SQLAlchemy.
+
+The following subsections present the architecture through three design views---the system context, the persistence data model, and the dynamics of a comparison run---followed by a description of the object types compared and the criteria applied to each.
+
+% ── 1. System context ────────────────────────────────────────
+\subsection{System Context}
+\label{subsec:sys-context}
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[
+      font=\small,
+      node distance=1.0cm and 1.8cm,
+      box/.style={rectangle, rounded corners, draw=accentblue, thick, fill=lightgray, align=center, minimum height=1cm, minimum width=2.6cm, inner sep=4pt},
+      store/.style={cylinder, shape border rotate=90, aspect=0.3, draw=darkgray, thick, fill=snowblue!15, align=center, minimum height=1.2cm, minimum width=2.2cm},
+      sf/.style={cylinder, shape border rotate=90, aspect=0.3, draw=green!55!black, very thick, fill=green!8, align=center, minimum height=1.3cm, minimum width=2.4cm},
+      ro/.style={-{Stealth}, thick, green!55!black},
+      rw/.style={<->, thick, accentblue},
+      plain/.style={-{Stealth}, thick, darkgray},
+    ]
+    \node[box] (user) {\textbf{Data engineer}};
+    \node[box, right=of user] (app) {Streamlit app\\\texttt{snowflake\_comparator}};
+    \node[store, below=of app] (sqlite) {SQLite\\\texttt{data/comparator.db}\\(SQLAlchemy)};
+    \node[sf, above right=0.4cm and 1.8cm of app] (src) {Snowflake\\\textbf{SOURCE}};
+    \node[sf, below right=0.4cm and 1.8cm of app] (tgt) {Snowflake\\\textbf{TARGET}};
+
+    \draw[plain] (user) -- node[above, font=\scriptsize] {browser UI} (app);
+    \draw[rw] (app) -- node[right, font=\scriptsize] {persist runs} (sqlite);
+    \draw[ro] (app) -- node[above, sloped, font=\scriptsize] {READ-ONLY} (src);
+    \draw[ro] (app) -- node[below, sloped, font=\scriptsize] {READ-ONLY} (tgt);
+
+    \begin{scope}[on background layer]
+      \node[draw=darkgray!40, dashed, rounded corners, fit=(user)(app)(sqlite), inner sep=10pt, label={[font=\scriptsize\itshape, darkgray]above:Local host (single user)}] {};
+    \end{scope}
+  \end{tikzpicture}
+  \caption{System context of the Snowflake Environment Comparator. Every connection to Snowflake is read-only (\texttt{SELECT}, \texttt{SHOW}, \texttt{DESCRIBE}); all run state is persisted locally in SQLite.}
+  \label{fig:sys-context}
+\end{figure}
+
+As shown in Figure~\ref{fig:sys-context}, the comparator runs entirely on a single local host operated by one data engineer. The application connects to two independent Snowflake accounts---the \emph{source} and the \emph{target}---and persists all of its working state in a local SQLite database via SQLAlchemy. This topology was a deliberate design choice. By running locally and reading from Snowflake over the engineer's own authenticated session, the tool requires no server infrastructure, no elevated service account, and no standing footprint inside the ARYZTA environments. The most important property of this context, however, is annotated on the arrows themselves: every interaction with Snowflake is \emph{read-only}. The application issues only \texttt{SELECT}, \texttt{SHOW}, and \texttt{DESCRIBE} statements; it never emits \gls{ddl}, \gls{dml}, \texttt{CALL}, \texttt{USE}, or \texttt{ALTER}. This guarantee is enforced structurally---by a client-side allow-list that rejects any non-read statement before it can be transmitted---which is what makes the tool safe to point directly at the production account.
+
+% ── 2. Data model (ER) ───────────────────────────────────────
+\subsection{Persistence Data Model}
+\label{subsec:datamodel}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{Data_Model.png}
+    \caption{Entity--relationship model of the comparator's SQLite store. A \texttt{comparison\_runs} record is the parent of the object snapshots, comparison results, and drift details captured during a run.}
+    \label{fig:ermodel}
+\end{figure}
+
+The comparator persists every run rather than writing transient flat files, so that history survives application restarts and can be queried after the fact. The relational model, shown in Figure~\ref{fig:ermodel}, is centred on the \texttt{comparison\_runs} entity, which records the metadata and aggregate scorecard of a single comparison and acts as the parent of three child entities. Table~\ref{tab:data-dictionary} summarises the role of each entity.
+
+\begin{table}[H]
+  \centering
+  \rowcolors{2}{lightgray}{white}
+  \begin{tabularx}{\textwidth}{l X}
+    \toprule
+    \rowcolor{ibmblue!15}
+    \textbf{Entity} & \textbf{Purpose and Key Contents} \\
+    \midrule
+    \texttt{comparison\_runs}    & One row per comparison run: UUID, timestamp, source/target labels, status (\texttt{running}/\texttt{completed}/\texttt{failed}), object counts, per-status tallies, and the overall match rate. \\
+    \texttt{object\_snapshots}   & The captured state of every object on each side (\texttt{SOURCE}/\texttt{TARGET}): type, fully qualified name, optional child name (e.g.\ a column), procedure/function signature, normalised key, and an attributes/DDL payload. \\
+    \texttt{comparison\_results} & The per-object verdict: normalised key, computed status (\texttt{MATCH}, \texttt{MISSING\_IN\_SOURCE}, \texttt{MISSING\_IN\_TARGET}, \texttt{DRIFT}), a confidence score, and presence flags for each side. \\
+    \texttt{drift\_details}      & For each drifted object, one row per differing attribute or column: the attribute name and its source and target values. \\
+    \texttt{connection\_profiles}& Non-secret connection prefill only (account, user, role, warehouse, database, schema, authenticator). \textbf{No password is ever stored.} \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Data dictionary of the comparator's persistence model.}
+  \label{tab:data-dictionary}
+\end{table}
+
+This schema embodies the auditability principle: because results and their supporting drift details are normalised and persisted, the platform team can answer questions such as ``which objects diverged between \texttt{UAT} and \texttt{PROD} on a given date, and exactly which attributes differed?'' long after the run completes. The deliberate exclusion of passwords from \texttt{connection\_profiles}---only non-secret prefill values are retained---reflects the security posture of the tool; credentials live only in the in-memory session and are never written to disk.
+
+% ── 3. Comparison run (sequence) ─────────────────────────────
+\subsection{Comparison Run Dynamics}
+\label{subsec:seq-run}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth]{run_sequence.png}
+    \caption{Sequence of a comparison run. For each object type the engine fetches the source and target objects through the read-only reader, compares them in memory, and persists snapshots, results, and drift in short transactions. No SQLite lock is held during the Snowflake reads.}
+    \label{fig:seq-run}
+\end{figure}
+
+Figure~\ref{fig:seq-run} traces the dynamic behaviour of a comparison run. When the engineer selects the databases and object types and launches a run, the engine first records a run with status \texttt{running}. It then iterates over the requested object types: for each type it fetches the objects from the source and from the target through the read-only reader, compares them in memory, and writes the resulting snapshots, results, and drift details. A deliberate design refinement is that \emph{no SQLite lock is held while a Snowflake read is in flight}: transactions are kept short and are opened only around the writes. This separation avoids a database-contention condition that arises when a long network read is wrapped inside an open local transaction, and it keeps the interface responsive during runs over large schemas. On completion, the run is updated with the aggregate counts and a status of \texttt{completed}.
+
+% ── Object types and criteria ────────────────────────────────
+\subsection{Object Types and Comparison Criteria}
+\label{subsec:object-criteria}
+
+The comparator covers the full range of object types that constitute the ARYZTA platform. The criterion by which each is compared is chosen to suit its nature, as summarised in Table~\ref{tab:object-criteria}. Code-bearing objects are compared by a \emph{normalised DDL hash}, which neutralises insignificant formatting differences (whitespace, casing, comments) so that only semantically meaningful divergence is reported as drift. Structural objects are compared by their defining attributes, and columns---the finest level of granularity---are compared across seven properties.
+
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.45}
+\setlength{\tabcolsep}{10pt}
+\rowcolors{2}{lightgray}{white}
+\begin{tabularx}{\textwidth}{
+>{\raggedright\arraybackslash\bfseries}p{4.7cm}
+X}
+\toprule
+\rowcolor{ibmblue!15}
+\textbf{Object Category} &
+\textbf{Comparison Criterion} \\
+\midrule
+Code Objects (\texttt{VIEWS}, \texttt{PROCEDURES}, \texttt{FUNCTIONS}, \texttt{TASKS}, \texttt{PIPES})
+&
+Comparison is based on a normalised DDL hash that is insensitive to formatting differences. For procedures and functions, the argument signature is also incorporated into the comparison. \\
+Structural Objects (\texttt{TABLES}, \texttt{STAGES}, \texttt{STREAMS}, \texttt{SEQUENCES})
+&
+Comparison relies on the defining metadata attributes of each object. \\
+Column Metadata (\texttt{COLUMNS})
+&
+Comparison includes the data type, length, precision, scale, nullability, default value, and ordinal position of each column. \\
+\bottomrule
+\end{tabularx}
+\caption{Comparison criteria used for each supported Snowflake object category.}
+\label{tab:object-criteria}
+\end{table}
+
+The complete set of object types covered is: \texttt{TABLES}, \texttt{COLUMNS}, \texttt{VIEWS}, \texttt{PROCEDURES}, \texttt{FUNCTIONS}, \texttt{STAGES}, \texttt{TASKS}, \texttt{STREAMS}, \texttt{SEQUENCES}, and \texttt{PIPES}. This breadth is what allows the audit to substantiate, with object-level evidence, the categories of discrepancy reported qualitatively in Chapter~2.
+
+% ═══════════════════════════════════════════════════════════════
+\section{Multi-Environment Synchronisation Strategy}
+\label{sec:sync}
+
+Where the comparator \emph{diagnoses} drift, the synchronisation strategy \emph{remediates} it. This section presents the design of the mechanism that realigns \texttt{DEV} and \texttt{UAT} with \texttt{PROD} and keeps them aligned on an ongoing basis.
+
+\subsection{Design Rationale and Scope}
+\label{subsec:sync-rationale}
+
+Because no robust documentation of the platform existed---itself a consequence of the governance gaps analysed in Chapter~2---the scope of the synchronisation could not be derived from a design specification. Instead, it was defined empirically: the strategy targets \emph{every database touched by the main DAG of Snowflake tasks}, the backbone schedule that performs all processing and populates the platform's outputs. This yielded a well-bounded set of \textbf{14 databases and their schemas}, enumerated in Table~\ref{tab:sync-databases}. Scoping to the main DAG ensures that the synchronisation covers exactly the objects on which the platform's behaviour actually depends, without attempting to reconcile incidental or abandoned objects whose alignment carries no operational value.
+
+The chosen mechanism is \textbf{Snowflake Secure Data Sharing}. A share is created \emph{from} \texttt{PROD}, which acts as the provider, and is consumed \emph{by} \texttt{UAT} and \emph{by} \texttt{DEV}, which act as consumers (\texttt{PROD} $\rightarrow$ \texttt{UAT} and \texttt{PROD} $\rightarrow$ \texttt{DEV}). Secure Data Sharing was selected for several reasons that align directly with the design principles of Section~\ref{sec:solution-overview}:
+
+\begin{itemize}
+  \item \textbf{Zero-copy, no egress.} A share exposes live, read-only references to the provider's data without physically copying it, so synchronising from \texttt{PROD} incurs no data movement, no storage duplication of the source, and no egress cost on the provider side.
+  \item \textbf{Production remains authoritative and untouched.} The consumers read from the share; the provider's objects are never modified by the synchronisation, preserving \texttt{PROD} as the single source of truth.
+  \item \textbf{Always current.} Because the share references live \texttt{PROD} data, each synchronisation run reflects the current production state rather than a stale snapshot.
+\end{itemize}
+
+Each of the 14 databases is exposed through its own dedicated share, following the naming convention \texttt{SH\_<DATABASE>}. On the consumer side, each share is mounted as a local database against which the synchronisation procedure reads.
+
+\begin{table}[H]
+  \centering
+  \scriptsize
+  \rowcolors{2}{lightgray}{white}
+  \begin{tabularx}{\textwidth}{@{}c >{\ttfamily}p{4.9cm} >{\ttfamily}p{2.7cm} X@{}}
+    \toprule
+    \rowcolor{ibmblue!15}
+    \normalfont\textbf{\#} & \normalfont\textbf{Database} & \normalfont\textbf{Schema} & \normalfont\textbf{Origin (main-DAG procedure)} \\
+    \midrule
+    1  & TRN\_\_CONTROLLING\_PROFITABILITY & PROFITABILITY & All procedures (home schema) \\
+    2  & LOG\_\_CONTROLLING\_PROFITABILITY & LOG & Logging framework (all procedures) \\
+    3  & CUR\_\_SAPECC & SAP\_ECC & \texttt{LEGAL\_ENTITY\_PRC} \\
+    4  & TRN\_\_DEP\_MIGRATION & MIGRATION & \texttt{LEGAL\_ENTITY\_PRC} \\
+    5  & CUR\_\_EXCELERATOR & EXCELERATOR & \texttt{COGS\_NON\_SAP\_PRC} \\
+    6  & CUR\_\_EXCEL & FILES & \texttt{ACTIVITY\_ANALYSIS\_PRC} \\
+    7  & RAW\_\_EXCEL & FILES & \texttt{COMPANY\_MASTER\_EXCEL\_RELOAD\_PRC} \\
+    8  & CONF\_\_ARYZTA\_GLOBAL\_INTRADAY & GLOBAL & \texttt{CUST\_BUDGET\_FORECAST\_PRC} \\
+    9  & CONF\_\_ARYZTA\_GLOBAL\_INTRADAY & MATERIAL & \texttt{CUSTOMER\_PROFITABILITY\_PRC} \\
+    10 & CONF\_\_CONTROLLING\_PROFITABILITY & GENERAL & \texttt{CUSTOMER\_PROFITABILITY\_PRC} \\
+    11 & RAW\_\_EXCELERATOR & EXCELERATOR & \texttt{MATERIAL\_COST\_LOAD\_PRC} \\
+    12 & SH\_\_OUTBOUND\_\_GROSS\_TO\_NET\_INTRADAY\_\_SH & GROSS\_TO\_NET\_FACTS & \texttt{REV\_QTY\_SOLD\_SAP\_PRC} \\
+    13 & SH\_\_CUR\_\_AFAS\_SNOWFLAKE\_\_SH & AFAS & \texttt{REV\_QTY\_SOLD\_ALL\_PRC} \\
+    14 & CONF\_\_ORGANIZATION\_INTRADAY & ORGANIZATION & \texttt{REV\_QTY\_SOLD\_SAP\_PRC} \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Databases and schemas in synchronisation scope (derived from the main task DAG). Each database is exposed through its own share, following the naming convention \texttt{SH\_<DATABASE>}.}
+  \label{tab:sync-databases}
+\end{table}
+
+\subsection{Share-Based Synchronisation Architecture}
+\label{subsec:sync-arch}
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}[
+      font=\small,
+      node distance=1.4cm and 2.4cm,
+      prod/.style={cylinder, shape border rotate=90, aspect=0.3, draw=green!55!black, very thick, fill=green!8, align=center, minimum height=1.4cm, minimum width=2.6cm},
+      env/.style={cylinder, shape border rotate=90, aspect=0.3, draw=accentblue, thick, fill=snowblue!12, align=center, minimum height=1.3cm, minimum width=2.4cm},
+      proc/.style={rectangle, rounded corners, draw=ibmblue, thick, fill=lightgray, align=center, minimum height=0.9cm, inner sep=4pt},
+      edge/.style={-{Stealth}, thick, darkgray},
+      share/.style={-{Stealth}, very thick, green!55!black},
+    ]
+    \node[prod] (prod) {\textbf{PROD}\\(provider)};
+    \node[proc, right=2.8cm of prod] (task) {Daily \texttt{TASK}\\$\rightarrow$ synchronisation\\procedure};
+    \node[env, above right=0.6cm and 2.4cm of task] (uat) {\textbf{UAT}\\(consumer)};
+    \node[env, below right=0.6cm and 2.4cm of task] (dev) {\textbf{DEV}\\(consumer)};
+
+    \draw[share] (prod) -- node[above, font=\scriptsize, align=center] {Secure Data Share\\\texttt{SH\_<DATABASE>} (read-only)} (task);
+    \draw[edge] (task) -- node[above, sloped, font=\scriptsize] {clone / refresh} (uat);
+    \draw[edge] (task) -- node[below, sloped, font=\scriptsize] {clone / refresh} (dev);
+  \end{tikzpicture}
+  \caption{Share-based synchronisation architecture. \texttt{PROD} provides a per-database read-only share; a daily task invokes the synchronisation procedure, which refreshes the corresponding schemas in the \texttt{UAT} and \texttt{DEV} consumer accounts.}
+  \label{fig:share-flow}
+\end{figure}
+
+Figure~\ref{fig:share-flow} depicts the runtime architecture. \texttt{PROD} publishes one read-only share per in-scope database. In each consumer account, a Snowflake \texttt{TASK} runs daily and invokes a synchronisation procedure, which reads from the mounted share and refreshes the target schema. The procedure is invoked once per (source-schema, target-schema) pair: it is given the share-mounted source schema, the local target schema, and an optional list of tables to exclude from the refresh (such as operational control tables that must be preserved).
+
+\subsection{Synchronisation Mechanism}
+\label{subsec:sync-mechanism}
+
+The synchronisation procedure accepts a source schema, a target schema, and an optional exclusion list. It operates in two phases and records every action it takes in a returnable log table, so that each run is self-documenting.
+
+\paragraph{Phase 1 --- Clone missing tables.} The procedure enumerates the base tables present in the source schema but absent from the target (honouring the exclusion list) and recreates each one in the target by cloning it from the source. Where a direct clone is not possible---most notably for tables that are themselves read from a share---it falls back to a create-table-as-select operation. Each outcome is recorded in the log as \emph{cloned}, \emph{created via CTAS}, or \emph{error}.
+
+\paragraph{Phase 2 --- Reconcile common tables.} For tables present in both schemas, the procedure compares their column sets (name and data type) against the source. If the structures are \emph{identical}, the target table is refreshed from \texttt{PROD} (a clone-replace, again with a create-table-as-select fallback for shared tables), bringing its data into line with production. If the structures \emph{differ}, the procedure deliberately does \emph{not} overwrite the target; instead it logs each discrepancy---\emph{only in source}, \emph{only in target}, or \emph{data-type mismatch}---under a \emph{structure mismatch} action.
+
+This log-only treatment of structural mismatches is a central safety property of the design: the daily synchronisation refreshes data wherever it is structurally safe to do so, but it never silently reshapes a divergent table. Structural divergence is surfaced for human review---and resolved through the governed deployment pipeline described in Chapter~4---rather than being resolved automatically, which prevents the synchronisation from masking the very drift it is meant to expose.
+
+\subsection{Idempotency and Safety Properties}
+\label{subsec:sync-safety}
+
+The synchronisation design exhibits four properties that directly counter the deficiencies identified in Chapter~2:
+
+\begin{itemize}
+  \item \textbf{Idempotent refresh.} Re-cloning a structurally identical table yields the same result regardless of how many times the daily task runs, so repeated execution is safe and convergent.
+  \item \textbf{Non-destructive on divergence.} Structurally mismatched tables are logged, never overwritten, ensuring the synchronisation cannot itself destroy or silently reshape data.
+  \item \textbf{Configurable exclusions.} Operational tables that must not be overwritten---such as user-maintained control tables---are passed as an exclusion list and skipped entirely.
+  \item \textbf{Self-documenting runs.} Every action is recorded in the returned log table, providing the per-run auditability that the platform previously lacked.
+\end{itemize}
+
+Taken together, the comparator and the synchronisation procedure form a closed diagnostic--corrective loop: the comparator measures the drift between any two environments, and the synchronisation reduces it on a daily basis while reporting any divergence it cannot safely resolve back to the engineering team.
+
+% ═══════════════════════════════════════════════════════════════
+\section*{Chapter Conclusion}
+
+This chapter has presented the design of the two artefacts at the heart of the solution. The Snowflake Environment Comparator was designed as a strictly read-only, layered application that ingests object metadata from any two Snowflake environments, classifies every object as \texttt{MATCH}, \texttt{DRIFT}, or one of two \texttt{MISSING} states, and persists a fully auditable history of each comparison. Its defining property---structural enforcement of read-only access---makes it safe to operate directly against the production account, satisfying the project's over-riding constraint that diagnosis must never endanger the platform. The synchronisation strategy was designed around Snowflake Secure Data Sharing, with \texttt{PROD} as an untouched provider and \texttt{DEV} and \texttt{UAT} as consumers, driven by a daily task that invokes a two-phase procedure to refresh aligned tables idempotently while surfacing structural divergence for review rather than overwriting it.
+
+Together, these designs translate the root causes identified in Chapter~2 into concrete, engineered countermeasures: reproducible measurement in place of guesswork, and governed, non-destructive realignment in place of ad-hoc direct-to-production changes. The following chapter, \textbf{Chapter~4 --- Implementation}, details the realisation of these designs and presents the delivered solution through its operational interfaces.
+
+\newpage

@@ -1,0 +1,73 @@
+% ═══════════════════════════════════════════════════════════════
+%  Appendices
+% ═══════════════════════════════════════════════════════════════
+
+\chapter{Environment Audit Checklist}
+\label{app:audit-checklist}
+
+The following table provides a representative extract of the environment audit checklist used to systematically compare Snowflake objects across DEV, UAT, and PROD. The full audit document comprises several hundred rows covering all schemas and object types in the ARYZTA platform.
+
+\begin{longtable}{l l c c c p{4.5cm}}
+  \toprule
+  \rowcolor{ibmblue!15}
+  \textbf{Schema} & \textbf{Object Name} & \textbf{Type} & \textbf{DEV} & \textbf{UAT} & \textbf{PROD Notes} \\
+  \midrule
+  \endfirsthead
+  \multicolumn{6}{c}{\small\itshape (Continued from previous page)} \\
+  \toprule
+  \rowcolor{ibmblue!15}
+  \textbf{Schema} & \textbf{Object Name} & \textbf{Type} & \textbf{DEV} & \textbf{UAT} & \textbf{PROD Notes} \\
+  \midrule
+  \endhead
+  \bottomrule
+  \endfoot
+  \bottomrule
+  \caption{Extract: Environment Audit Checklist}
+  \label{tab:audit-checklist}
+  \endlastfoot
+
+  RAW         & ORDERS\_STAGING        & Table     & \ding{55} & \ding{55} & Present, 24 columns \\
+  RAW         & PRODUCTS\_STAGING      & Table     & \ding{55} & \ding{73} & UAT missing 3 cols \\
+  TRANSFORM   & SP\_LOAD\_ORDERS       & Procedure & \ding{55} & \ding{55} & Updated v3 in PROD \\
+  TRANSFORM   & SP\_CALC\_MARGINS      & Procedure & \ding{73} & \ding{73} & DEV/UAT on v1, PROD v2 \\
+  ORCHESTRATE & TASK\_DAILY\_LOAD      & Task      & \ding{55} & \ding{55} & Scheduled, PROD only \\
+  ORCHESTRATE & TASK\_HOURLY\_REFRESH  & Task      & \ding{55} & \ding{55} & Missing in both \\
+  ANALYTICS   & VW\_SALES\_SUMMARY     & View      & \ding{73} & \ding{51} & DEV definition outdated \\
+  ANALYTICS   & VW\_INVENTORY\_STATUS  & View      & \ding{55} & \ding{73} & Critical reporting view \\
+  INGEST      & STG\_CUSTOMER\_ORDERS  & Stage     & \ding{55} & \ding{55} & S3 integration, PROD only \\
+  INGEST      & STM\_ORDER\_CHANGES    & Stream    & \ding{55} & \ding{55} & CDC stream, PROD only \\
+\end{longtable}
+
+\noindent\footnotesize \ding{51} = Present and consistent\quad \ding{55} = Absent\quad \ding{73} = Partially present or inconsistent
+
+% ─────────────────────────────────────────────────────────────
+
+\chapter{Glossary of Technical Terms}
+\label{app:glossary}
+
+\begin{longtable}{l p{10cm}}
+  \toprule
+  \rowcolor{ibmblue!15}
+  \textbf{Term} & \textbf{Definition} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \rowcolor{ibmblue!15}
+  \textbf{Term} & \textbf{Definition} \\
+  \midrule
+  \endhead
+  \bottomrule
+  \endfoot
+
+  Environment Drift       & The progressive divergence of software environments from a common baseline, caused by changes applied to one environment without being applied to others. \\[6pt]
+  CI/CD Pipeline          & An automated sequence of steps that validate, test, and deploy code changes from a version control system to one or more target environments. \\[6pt]
+  Snowflake Task          & A Snowflake-native object that schedules the execution of a SQL statement or stored procedure at a defined interval or in response to a trigger condition. \\[6pt]
+  Snowflake Stream        & A Snowflake-native object that tracks Data Manipulation Language (DML) changes (inserts, updates, deletes) to a source table, enabling Change Data Capture patterns. \\[6pt]
+  GitHub Actions          & A CI/CD platform integrated into GitHub that enables the definition of automated workflows triggered by repository events such as push, pull request, or schedule. \\[6pt]
+  Pull Request            & A request to merge a branch into another branch in a version control system, typically subject to review by one or more team members before the merge is approved. \\[6pt]
+  IaC (Infra-as-Code)     & A practice in which the desired state of infrastructure components is declared in machine-readable configuration files and applied through automated tooling. \\[6pt]
+  DataOps                 & A set of practices, processes, and technologies that combine data engineering with DevOps principles to improve the quality, speed, and reliability of data pipeline delivery. \\[6pt]
+  RBAC                    & Role-Based Access Control; a security model in which permissions to perform operations are assigned to roles, and users are granted roles rather than individual permissions. \\[6pt]
+  Idempotency             & The property of an operation that produces the same result regardless of how many times it is applied. Idempotent deployment scripts can be re-executed safely without unintended side effects. \\[6pt]
+  Technical Debt          & The implied cost of rework caused by choosing an expedient solution now instead of a more robust approach that would take longer. \\
+\end{longtable}

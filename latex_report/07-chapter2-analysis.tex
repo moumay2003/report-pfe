@@ -1,0 +1,200 @@
+% ═══════════════════════════════════════════════════════════════
+%  Chapter 2 — Problem Analysis
+% ═══════════════════════════════════════════════════════════════
+\chapter{Problem Analysis}
+\label{chap:analysis}
+
+\section*{Chapter Introduction}
+
+With the project context established in the preceding chapter, this chapter undertakes a systematic and technically grounded analysis of the problem at hand. The objective is to move beyond a descriptive account of the observed discrepancies and to develop a rigorous understanding of the current state of the platform, the business consequences of its shortcomings, and the underlying factors---both organizational and technical---that produced them.
+
+This analysis draws on the findings of the environment audit conducted during the second phase of the internship, as well as on stakeholder interviews and a review of historical deployment records. Together, these sources provide the empirical basis for the solution design presented in Chapter 3.
+
+% ─────────────────────────────────────────────────────────────
+\section{Current State Assessment}
+\label{sec:current-state}
+
+\subsection{Key Problems Identified}
+\label{subsec:key-problems}
+
+The environment audit conducted during Weeks 3--5 of the internship produced a comprehensive inventory of discrepancies between ARYZTA's three Snowflake accounts. The findings reveal a platform in which the separation between environments has, in practice, collapsed: \texttt{PROD} has become the de facto source of truth, while \texttt{DEV} and \texttt{UAT} have drifted to the point where they can no longer serve their intended functions.
+
+The key categories of discrepancy identified are summarized in Table~\ref{tab:discrepancy-categories} and elaborated in the subsections that follow.
+
+\begin{table}[H]
+  \centering
+  \rowcolors{2}{lightgray}{white}
+  \begin{tabularx}{\textwidth}{l c c c X}
+    \toprule
+    \rowcolor{ibmblue!15}
+    \textbf{Object Type}    & \textbf{DEV} & \textbf{UAT} & \textbf{PROD} & \textbf{Nature of Discrepancy} \\
+    \midrule
+    Tables                  & \ding{55}    & \ding{55}    & \ding{51}     & Missing columns, absent tables \\
+    Stored Procedures       & \ding{55}    & \ding{55}    & \ding{51}     & Outdated logic, missing procedures \\
+    Tasks                   & \ding{55}    & \ding{55}    & \ding{51}     & Missing scheduled tasks \\
+    Streams                 & \ding{55}    & \ding{55}    & \ding{51}     & Change Data Capture gaps \\
+    Views                   & \ding{73}    & \ding{73}    & \ding{51}     & Partial presence, definition drift \\
+    Schemas                 & \ding{73}    & \ding{73}    & \ding{51}     & Structural inconsistencies \\
+    Stages                  & \ding{55}    & \ding{73}    & \ding{51}     & Missing or misconfigured stages \\
+    Warehouse Configuration & \ding{73}    & \ding{73}    & \ding{51}     & Size and auto-suspend differences \\
+    \bottomrule
+    \multicolumn{5}{l}{\footnotesize \ding{51} = Present and consistent\quad \ding{55} = Significantly absent\quad \ding{73} = Partially present or inconsistent}
+  \end{tabularx}
+  \caption{Summary of Snowflake Environment Discrepancies by Object Type}
+  \label{tab:discrepancy-categories}
+\end{table}
+
+\subsubsection{Missing and Inconsistent Database Objects}
+
+The most immediately impactful category of discrepancy involves database objects that exist in \texttt{PROD} but are absent from \texttt{DEV} and/or \texttt{UAT}. During the audit, a significant number of tables were found to exist exclusively in \texttt{PROD}, including several that serve as staging targets for critical data ingestion pipelines. In \texttt{DEV}, engineers attempting to develop and test enhancements to these pipelines were working against an environment that lacked the structural prerequisites for the transformation logic to execute correctly.
+
+In addition to entirely absent objects, a substantial proportion of shared objects were found to have structurally divergent definitions. Columns had been added to \texttt{PROD} tables without the corresponding DDL being applied to the lower environments. In some cases, column data types differed between environments---an inconsistency that is particularly dangerous, as it can cause silent type-coercion failures that are difficult to detect in testing and manifest only at scale in production.
+
+\subsubsection{Stored Procedure and Task Inconsistencies}
+
+Snowflake stored procedures constitute a significant portion of ARYZTA's transformation logic. The audit revealed numerous instances where the procedure body in \texttt{PROD} had been modified directly---often to apply hotfixes or urgent business logic changes---without the updated version being backported to \texttt{DEV} or \texttt{UAT}. As a result, the lower environments were executing outdated procedure logic that no longer reflected the production behavior, rendering any testing conducted against these environments misleading.
+
+Snowflake Tasks---scheduled execution units that orchestrate pipeline automation---were found to be similarly inconsistent. Several tasks defined in \texttt{PROD}, responsible for invoking stored procedures on a scheduled basis, had no counterpart in \texttt{DEV} or \texttt{UAT}. This gap meant that full end-to-end pipeline testing in a lower environment was structurally impossible.
+
+\subsubsection{Deployment Workflow and Governance Gaps}
+
+Beyond the object-level discrepancies, the audit identified a complete absence of formal deployment governance. There existed no documented deployment standard, no mandatory review process for Snowflake changes, and no version-controlled repository containing the authoritative DDL or DML definitions of platform objects. The deployment workflow consisted, in practice, of engineers connecting to the Snowflake web UI or SnowSQL client and executing SQL statements directly against each environment's console.
+
+This approach had the effect of making every deployment a one-way, irreversible operation: there was no rollback mechanism, no pre-deployment validation, and no post-deployment verification step. The sole record of what had been deployed was the Snowflake query history---a per-environment log that is neither searchable across environments nor suitable for use as a source of truth for object definitions.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{dicrepency.png}
+    \caption{Discrepancy of objects within an environment}
+    \label{fig:discrepancy-objects}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{dev_prod.png}
+    \caption{Discrepancy between PROD and DEV}
+    \label{fig:discrepancy-dev-prod}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{uat_prod.png}
+    \caption{Discrepancy between UAT and PROD}
+    \label{fig:discrepancy-uat-prod}
+\end{figure}
+% ─────────────────────────────────────────────────────────────
+\section{Business Impact}
+\label{sec:business-impact}
+
+\subsection{Operational Challenges}
+\label{subsec:operational-challenges}
+
+The technical state described above translates into a set of concrete operational challenges that affect the day-to-day productivity of the engineering team and the reliability of the platform for ARYZTA's business users.
+
+\paragraph{Unreliable Development and Testing.} Because \texttt{DEV} does not accurately reflect the structure of \texttt{PROD}, features developed and tested in \texttt{DEV} carry a non-trivial probability of failure when promoted to production. Engineers are aware of this risk and have responded by shortening the development cycle---conducting only superficial testing in \texttt{DEV} before deploying directly to \texttt{PROD}---which in turn further entrenches the practice of direct production deployment.
+
+\paragraph{Deployment Bottlenecks.} In the absence of an automated deployment pipeline, every change must be applied manually to each environment in sequence. For changes involving multiple interdependent objects---a common scenario in Snowflake platform development, where a procedure may depend on a table, which depends on a schema, which depends on a database---the risk of applying changes in the wrong order or missing a dependency is high. This complexity slows deployments and increases the cognitive load on engineers.
+
+\paragraph{Incident Response Complexity.} When a production incident occurs---a pipeline failure, a data quality degradation, or a scheduled task error---the inability to reproduce the \texttt{PROD} state in a lower environment significantly complicates root cause analysis. Engineers cannot safely experiment with fixes in an isolated environment, as \texttt{DEV} and \texttt{UAT} do not reliably simulate \texttt{PROD} behavior.
+
+\paragraph{Knowledge Fragmentation.} The absence of a versioned codebase means that institutional knowledge about the platform is concentrated in the individuals who have historically made changes, rather than being codified in a repository that is accessible to the full team. This creates a significant bus factor risk: if a key team member leaves or is unavailable, the team's ability to safely modify the platform is materially impaired.
+
+\subsection{Financial and Strategic Impact}
+\label{subsec:financial-impact}
+
+While a precise financial quantification of the cost of environment misalignment is beyond the scope of this internship, the qualitative financial and strategic impacts are significant and warrant formal acknowledgment.
+
+\paragraph{Increased Maintenance Cost.} Manual deployments are inherently more time-consuming than automated ones. The time spent by senior Data Engineers on manually executing and verifying deployments represents a direct opportunity cost: those hours could otherwise be invested in platform enhancement, data product development, or technical debt reduction.
+
+\paragraph{Production Incident Risk.} Direct production deployments without prior validation in a synchronized lower environment dramatically increase the probability of production-impacting incidents. Data platform failures in ARYZTA's context---where operational reporting and supply chain analytics depend on the platform---can have measurable downstream consequences, including delayed decision-making and reputational risk with business stakeholders.
+
+\paragraph{Technical Debt Accumulation.} Each ad-hoc deployment that bypasses the lower environments adds to the stock of technical debt. Resolving this debt requires progressively more engineering effort as the discrepancies between environments compound over time. The cost of not addressing environment alignment therefore increases monotonically with time.
+
+\paragraph{Impediment to Platform Evolution.} The inability to safely test new features in a production-representative lower environment acts as a structural constraint on the pace of platform innovation. ARYZTA's data team is unable to confidently adopt new Snowflake capabilities---such as dynamic tables, Snowpark, or data sharing features---without incurring disproportionate deployment risk.
+
+% ─────────────────────────────────────────────────────────────
+\section{Root Cause Analysis}
+\label{sec:root-cause}
+
+A rigorous problem analysis requires going beyond the symptoms---the observed discrepancies---to identify the underlying causes that gave rise to them. The root cause analysis conducted in this section draws on the findings of the environment audit, stakeholder interviews with current and former members of the ARYZTA platform team, and a review of available deployment records. The analysis is organized along two complementary axes: organizational factors and technical factors.
+
+\subsection{Organizational Factors}
+\label{subsec:org-factors}
+
+\subsubsection{Absence of a Deployment Governance Framework}
+
+The most fundamental organizational root cause of the observed environment drift is the complete absence of a formal deployment governance framework. At no point during the previous management phase was a documented deployment standard produced, reviewed, or enforced. There was no defined process for how changes should be developed, tested, approved, and promoted across the environment lifecycle. In the absence of such a framework, individual engineers defaulted to the path of least resistance: applying changes directly to the environment in which they were needed, without regard for the downstream consequences on other environments.
+
+Governance frameworks in data engineering contexts typically encompass deployment standards (e.g., all DDL changes must be version-controlled), access control policies (e.g., only a designated release engineer may deploy to \texttt{PROD}), and change management procedures (e.g., all \texttt{PROD} deployments require a corresponding change request ticket). None of these elements were in place for the ARYZTA platform.
+
+\subsubsection{Weak DevOps and DataOps Culture}
+
+The previous management team operated with a delivery model that prioritized speed of feature delivery over the engineering discipline required to sustain that delivery at scale. This orientation---common in early-stage data platform projects where time-to-value is prioritized over maintainability---is appropriate in certain contexts but becomes progressively more problematic as the platform matures and the cost of inconsistency accumulates.
+
+The absence of a \gls{devops} culture manifested in several concrete ways: no code review process for Snowflake SQL, no environment-parity requirement in sprint acceptance criteria, no investment in deployment automation, and no retrospective analysis of deployment incidents to identify structural improvements.
+
+\subsubsection{Insufficient Environment Management Strategy}
+
+A three-environment architecture (\texttt{DEV}/\texttt{UAT}/\texttt{PROD}) provides value only if the environments are actively managed to remain synchronized. This requires an explicit environment management strategy that defines how changes flow between environments, how environments are refreshed, and how discrepancies are detected and remediated. The previous team had no such strategy: the three Snowflake accounts existed as independent operational entities rather than as interconnected stages of a single delivery pipeline.
+
+\subsection{Technical Factors}
+\label{subsec:tech-factors}
+
+\subsubsection{Direct Production Deployment as Standard Practice}
+
+The most direct technical cause of environment drift is the practice of applying changes directly to \texttt{PROD} without first deploying them to \texttt{DEV} and \texttt{UAT}. This practice was not an exceptional deviation from a defined standard---it was, in effect, the standard. As documented in the deployment history review, the majority of schema changes and stored procedure updates applied to the \texttt{PROD} environment during the previous management period have no corresponding record of prior deployment to lower environments.
+
+The technical mechanism by which this practice perpetuates itself is straightforward: once a change is applied only to \texttt{PROD}, the lower environments become structurally incompatible with \texttt{PROD}. Any subsequent attempt to use the lower environments for testing will encounter failures or behavioral differences that engineers interpret as artifacts of the lower environment rather than as reflections of a genuine issue. This erodes confidence in the lower environments and reinforces the preference for direct \texttt{PROD} deployment.
+
+\subsubsection{Absence of Version Control for Snowflake Objects}
+
+No \gls{vcs} system was used to track the definitions of Snowflake objects. The DDL for tables, procedures, tasks, and other objects existed---if at all---only as informal scripts on engineers' local machines or in unstructured shared storage, without versioning, branching, or history. This absence of version control made it structurally impossible to:
+
+\begin{itemize}
+  \item Determine the authoritative current definition of any given Snowflake object.
+  \item Identify what had changed between deployments.
+  \item Roll back to a previous state in the event of a failed deployment.
+  \item Enforce peer review of changes before deployment.
+\end{itemize}
+
+\subsubsection{No Infrastructure-as-Code Practices}
+
+\gls{iac} practices---in which the desired state of infrastructure components is declared in version-controlled configuration files rather than applied through imperative commands---are well-established in cloud operations. In the data engineering context, this principle extends to the definition of Snowflake objects in SQL migration files or declarative configuration schemas that can be applied idempotently to any target environment. The previous team made no use of such practices: all deployments were imperative, executed through ad-hoc SQL statements with no idempotency guarantees.
+
+\subsubsection{Lack of Deployment Automation}
+
+The absence of any deployment automation mechanism meant that even when engineers intended to apply a change to all three environments, the process was error-prone. Manual steps were occasionally skipped, objects were deployed in incorrect dependency order, and post-deployment validations were rarely performed. Automation addresses these failure modes by encoding the correct deployment sequence and validation logic into a repeatable pipeline that executes deterministically on every invocation.
+
+
+
+\begin{table}[H]
+  \centering
+  \rowcolors{2}{lightgray}{white}
+  \begin{tabularx}{\textwidth}{l l X l}
+    \toprule
+    \rowcolor{ibmblue!15}
+    \textbf{Root Cause} & \textbf{Category} & \textbf{Description} & \textbf{Impact} \\
+    \midrule
+    No governance framework       & Organizational & No deployment standards or policies defined             & High \\
+    Weak DevOps culture           & Organizational & Speed prioritized over engineering discipline           & High \\
+    No environment management     & Organizational & Environments treated as independent silos               & High \\
+    Direct PROD deployments       & Technical      & Changes applied to PROD without lower-env testing       & Critical \\
+    No version control            & Technical      & Object definitions not tracked in any VCS               & Critical \\
+    No IaC practices              & Technical      & Imperative deployments with no idempotency guarantees   & High \\
+    No deployment automation      & Technical      & Manual, error-prone deployment steps                    & High \\
+    No rollback mechanism         & Technical      & No ability to revert failed deployments safely          & Medium \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Root Cause Analysis Summary}
+  \label{tab:root-cause}
+\end{table}
+
+\section*{Chapter Conclusion}
+
+This chapter has presented a comprehensive and technically rigorous analysis of the current state of ARYZTA's Snowflake data platform. The environment audit revealed systemic discrepancies across all major Snowflake object types, with \texttt{DEV} and \texttt{UAT} failing to accurately represent the \texttt{PROD} state due to years of ungoverned direct-production deployments.
+
+The business impact of these discrepancies is substantial: unreliable testing, deployment bottlenecks, increased incident response complexity, accumulating technical debt, and an impediment to platform evolution. The root cause analysis identifies two interlocking sets of causes---organizational (absence of governance, weak DevOps culture) and technical (no version control, no IaC, no automation)---that together explain how the platform arrived at its current state.
+
+Importantly, these root causes are not intractable. They can be systematically addressed through the implementation of a versioned codebase, an automated CI/CD pipeline, and a governance framework that enforces structured deployments. The design of this solution is the subject of the following chapter.
+
+\newpage

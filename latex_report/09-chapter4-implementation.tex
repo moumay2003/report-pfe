@@ -1,0 +1,190 @@
+% ═══════════════════════════════════════════════════════════════
+%  Chapter 4 — Implementation
+% ═══════════════════════════════════════════════════════════════
+%  Realisation chapter: presented through the delivered artefacts and
+%  their operational interfaces (screenshots). No source code is shown,
+%  in keeping with the conventions of an academic engineering report.
+%
+\chapter{Implementation}
+\label{chap:implementation}
+
+\section*{Chapter Introduction}
+
+Chapter~3 established the design of the two engineered artefacts---the read-only audit tool and the share-based synchronisation mechanism---together with the governance model required to sustain them. This chapter documents their concrete realisation. Rather than reproducing source code, it presents the delivered solution as an engineer and a stakeholder actually experience it: through its operational interfaces and the evidence of its execution. The implementation is organised into three workstreams, each corresponding to one of the project's principal deliverables:
+
+\begin{enumerate}
+  \item the \textbf{Snowflake Environment Comparator}, the read-only diagnostic application, presented through its operating screens;
+  \item the \textbf{version control and \gls{cicd} pipeline} integrating GitHub and GitHub Actions with the Snowflake environments; and
+  \item the \textbf{synchronisation solution}---the Secure Data Shares and the scheduled procedure that drives the realignment of the lower environments.
+\end{enumerate}
+
+Throughout, attention is paid to the two constraints that have governed the project: the diagnostic tooling must remain incapable of modifying any environment, and all deployments to the environments must flow through a governed, version-controlled process rather than the ad-hoc direct changes that produced the original drift.
+
+% ─────────────────────────────────────────────────────────────
+\section{Implementation Environment and Tooling}
+\label{sec:impl-env}
+
+The implementation was carried out using the technology stack summarised in Table~\ref{tab:impl-stack}. The choices reflect the design commitments made in Chapter~3: a lightweight, locally hosted application for the audit tool, a Git-based collaboration model for source control, and GitHub Actions as the automation substrate for deployments to Snowflake.
+
+\begin{table}[H]
+  \centering
+  \rowcolors{2}{lightgray}{white}
+  \begin{tabularx}{\textwidth}{l l X}
+    \toprule
+    \rowcolor{ibmblue!15}
+    \textbf{Component} & \textbf{Technology} & \textbf{Role in the Implementation} \\
+    \midrule
+    Application runtime & Python, Streamlit & The comparator's interface and logic (connection gate, run, results, history). \\
+    Persistence & SQLite + SQLAlchemy & Local storage of comparison runs, snapshots, results, and drift. \\
+    Snowflake access & Snowflake Python connector & Read-only metadata access for the comparator; authenticated deployment for the pipeline. \\
+    Version control & Git + GitHub & Authoritative repository for Snowflake code, with branch protection and pull-request review. \\
+    Automation & GitHub Actions & \gls{cicd} workflow: validation, environment-scoped deployment, and post-deployment checks. \\
+    Change management & ServiceNow & Change-request tracking for every promotion to \texttt{PROD}. \\
+    Data platform & Snowflake & The three target environments (\texttt{DEV}, \texttt{UAT}, \texttt{PROD}) and Secure Data Sharing. \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Implementation technology stack.}
+  \label{tab:impl-stack}
+\end{table}
+
+% ═══════════════════════════════════════════════════════════════
+\section{Realisation of the Audit and Comparison Tool}
+\label{sec:impl-comparator}
+
+The Snowflake Environment Comparator was implemented as a Streamlit application realising the layered architecture of Section~\ref{sec:comparator}. This section presents the delivered tool through the four screens that constitute a complete diagnostic workflow: connecting, configuring a run, reading the results, and consulting the history.
+
+\subsection{Connection Gate}
+\label{subsec:impl-gate}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{comparator_gate.png}
+  \caption{The connection gate. The engineer configures the source and target environments side by side; both must validate with a live read-only test query before the application unlocks. The permanent read-only banner states that only \texttt{SELECT}, \texttt{SHOW}, and \texttt{DESCRIBE} statements reach Snowflake.}
+  \label{fig:gate}
+\end{figure}
+
+Figure~\ref{fig:gate} shows the entry screen, which realises the connection-gate design of Chapter~3. The engineer enters, for both the \emph{source} and the \emph{target}, the account, user, authentication method, role, warehouse, and an optional default database. The authentication selector exposes the methods accepted by the Snowflake connector---single sign-on through an external browser, username and password, and password with multi-factor authentication---so that environments enforcing MFA, such as \texttt{DEV}, can be reached. No screen beyond this gate is reachable until both connections validate with a live test query, which eliminates the risk of mistaking an unreachable environment for one with missing objects. The green banner at the top right---``\textsc{read-only --- only SELECT / SHOW / DESCRIBE reach Snowflake; no DDL/DML is ever issued}''---is displayed permanently, making the tool's safety posture visible at every step.
+
+\subsection{Configuring and Launching a Comparison}
+\label{subsec:impl-run}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{comparator_run.png}
+  \caption{The run-configuration screen. The engineer selects the databases to compare and the object types to include, then launches the comparison. The database list is retrieved live from the connected accounts.}
+  \label{fig:run}
+\end{figure}
+
+Once unlocked, the application presents the run-configuration screen of Figure~\ref{fig:run}. The engineer selects the databases to compare---retrieved live from the connected accounts and refreshable on demand---and the object types to include. All ten supported types are selectable: tables, columns, views, procedures, functions, stages, tasks, streams, sequences, and pipes. Launching the comparison triggers the ingestion-and-comparison process: the engine reads object metadata from both environments through the read-only reader, classifies every object, and persists the outcome.
+
+\subsection{Comparison Results and Scorecard}
+\label{subsec:impl-results}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{comparator_results.png}
+  \caption{The results screen for a \texttt{PROD}-versus-\texttt{UAT} comparison. The scorecard reports the number of objects compared, the overall match rate, and the per-status tallies; the tabs break the results down by object type, and the table below supports filtering and search down to individual objects, columns, and attributes.}
+  \label{fig:results}
+\end{figure}
+
+Figure~\ref{fig:results} presents the results screen, which is the principal output of the audit. The scorecard at the top quantifies the alignment of the selected environment pair: for the illustrated \texttt{PROD}-versus-\texttt{UAT} run, it reports \textbf{20{,}670 objects compared}, an overall \textbf{match rate of 90.6\%}, \textbf{67 drifted} objects, \textbf{192 missing in the target}, and \textbf{1{,}692 missing in the source}. The tabbed control beneath the scorecard breaks the figures down by object type---tables, columns, views, procedures, functions, stages, tasks, and streams---each annotated with its own count, while the searchable, filterable table at the bottom allows the engineer to drill down to an individual object, its status, its confidence score, and its presence on each side. This screen transforms the qualitative discrepancies described in Chapter~2 into precise, object-level measurements.
+
+\subsection{Comparison History}
+\label{subsec:impl-history}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{comparator_history.png}
+  \caption{The comparison-history screen. Every run is persisted with its timestamp, source and target labels, status, and aggregate counts, and can be reopened in the results view.}
+  \label{fig:history}
+\end{figure}
+
+Because every run is persisted to the SQLite store, the application retains a complete, queryable history, shown in Figure~\ref{fig:history}. Each entry records the run identifier, the timestamp, the source and target environments, the completion status, and the aggregate counts, and any past run can be reopened in the results view. This history is what gives the audit its durable, auditable character: the alignment of the environments can be re-measured at any time and the trajectory of the drift tracked across runs. The realisation of the comparator thus delivers not only a one-off diagnosis but a permanent instrument for monitoring the platform's health.
+
+% ═══════════════════════════════════════════════════════════════
+\section{Version Control and the CI/CD Pipeline}
+\label{sec:impl-cicd}
+
+The second workstream realises objectives O4 and O5: placing the Snowflake codebase under version control and automating its promotion across environments through a governed pipeline.
+
+\subsection{Repository and Branching Model}
+\label{subsec:impl-repo}
+
+A GitHub repository (\texttt{aryzta-analytics-sf3}) was established as the authoritative source of truth for the platform's Snowflake objects and the deployment automation. The branching model maps each long-lived branch to one environment---\texttt{dev}~$\rightarrow$~\texttt{DEV}, \texttt{uat}~$\rightarrow$~\texttt{UAT}, and \texttt{main}~$\rightarrow$~\texttt{PROD}---and branch-protection rules require a reviewed pull request before any change can be merged into the upper-environment branches. This directly remedies the absence of code review and version control identified as root causes in Chapter~2: every change to the platform now has an author, a reviewer, and a permanent history.
+
+\subsection{The End-to-End Deployment Workflow}
+\label{subsec:impl-workflow}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{deployment_workflow.png}
+  \caption{The deployment workflow after CI/CD implementation. A change flows from development and commit, through the GitHub repository and pull-request review, into the automated pipeline (checkout, validation, build, and staged deployment with an approval gate before production), and finally into the Snowflake environments.}
+  \label{fig:deploy-workflow}
+\end{figure}
+
+Figure~\ref{fig:deploy-workflow} shows the governed path that every change now follows. A developer commits SQL changes to the repository; the change is reviewed through a pull request, where it can be approved or sent back for revision; once merged, the pipeline checks out the code, validates and lints it, and deploys it to \texttt{DEV} and then \texttt{UAT}; and only after a successful \texttt{UAT} stage and an explicit approval gate is the change deployed to \texttt{PROD}. The benefits annotated along the bottom of the diagram---a single source of truth, automated checks, governed deployments, reduced errors, and a complete audit trail---are precisely the properties whose absence Chapter~2 identified as the cause of the drift.
+
+\subsection{GitHub Actions in Operation}
+\label{subsec:impl-gh}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{github_actions_home.png}
+  \caption{The GitHub Actions view of the repository, showing the configured workflows---among them the \emph{Deployment DEV $\rightarrow$ UAT $\rightarrow$ PROD} pipeline---and the history of workflow runs triggered by commits and pull requests.}
+  \label{fig:gh-home}
+\end{figure}
+
+The automation is implemented as GitHub Actions workflows, shown in operation in Figure~\ref{fig:gh-home}. The repository defines dedicated workflows---including a continuous-integration process and the \emph{Deployment DEV~$\rightarrow$~UAT~$\rightarrow$~PROD} pipeline---and the run history records hundreds of executions, each tied to a specific commit or pull request and to the engineer who initiated it. This run history is itself a governance artefact: it provides a complete, timestamped record of every deployment attempt and its outcome, the absence of which previously made incident analysis so difficult.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{github_actions_deploy_job.png}
+  \caption{A successful deployment job. The pipeline checks out the code, prepares the Python environment and the Snowflake connector, validates deployment permissions, identifies the modified SQL scripts, and executes them against the target environment.}
+  \label{fig:gh-deploy}
+\end{figure}
+
+Figure~\ref{fig:gh-deploy} details a single deployment job. Its ordered steps---setting up the job, checking out the code, preparing Python, installing the Snowflake connector, \emph{validating deployment permissions}, setting up the environment variables, \emph{identifying the modified SQL scripts}, and \emph{executing} them---encode the deployment discipline that was previously absent. Two steps are particularly significant: the permission-validation step enforces that the pipeline deploys only with an authorised identity, and the change-detection step ensures that only the scripts actually modified by the change are applied, rather than a blanket re-execution. The job completes in seconds, illustrating that governance and speed are not in tension once the process is automated. For every promotion to \texttt{PROD}, the deployment is additionally associated with a ServiceNow change request, in line with ARYZTA's change-management policy described in Section~\ref{sec:project-mgmt}, establishing an auditable link between each production change and its authorising ticket.
+
+% ═══════════════════════════════════════════════════════════════
+\section{Deployment of the Synchronisation Solution}
+\label{sec:impl-sync}
+
+The third workstream deployed the share-based synchronisation designed in Section~\ref{sec:sync}, bringing \texttt{DEV} and \texttt{UAT} into ongoing alignment with \texttt{PROD}.
+
+\subsection{Secure Data Shares}
+\label{subsec:impl-shares}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{data_share.png}
+  \caption{The inbound Secure Data Shares as seen from a consumer account. Each in-scope \texttt{PROD} database is exposed as a dedicated read-only share that the lower environments mount locally for synchronisation.}
+  \label{fig:data-share}
+\end{figure}
+
+Figure~\ref{fig:data-share} shows the Secure Data Shares provisioned for the project, viewed from a consumer account's external-sharing catalogue. Each in-scope \texttt{PROD} database is published as its own read-only share---visible here under names following the project's share convention---and mounted as a local database in the \texttt{UAT} and \texttt{DEV} accounts. One of the shares is annotated ``Alignment PROD--UAT'', reflecting its purpose. This realises the provider/consumer architecture of Chapter~3: production data is exposed live and read-only, without being copied, and remains the untouched source of truth.
+
+\subsection{The Synchronisation Procedure in Operation}
+\label{subsec:impl-sp}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{sync_procedure_run.png}
+  \caption{A run of the synchronisation procedure in Snowflake. The procedure is invoked for a share-mounted source schema and a local target schema, and returns a log table recording, per table, the action taken and its outcome.}
+  \label{fig:sync-run}
+\end{figure}
+
+Figure~\ref{fig:sync-run} shows the synchronisation procedure executing in Snowflake. The procedure is invoked for a given share-mounted source schema and local target schema, with a list of tables to exclude from the refresh. It returns a log table that records, for every table, the action taken and its result. In the illustrated run, many tables are refreshed via a create-table-as-select operation---the documented fallback for objects read from a share, where a direct clone is not permitted---each annotated accordingly in the log. This per-table log is the operational counterpart to the comparator's audit history: where the comparator measures drift on demand, the synchronisation log records, day by day, exactly which tables were refreshed and which exhibited structural divergence requiring a governed change through the pipeline.
+
+\subsection{Daily Scheduling}
+\label{subsec:impl-task}
+
+The procedure is driven on a daily cadence by a Snowflake task in each consumer account. Because the procedure operates at schema granularity, the schedule invokes it once for each in-scope schema of Table~\ref{tab:sync-databases}, passing the appropriate exclusion list so that operational control tables are preserved. The task therefore reduces the entire alignment workload to a single, repeatable, self-documenting daily operation, replacing what had previously been an undocumented and manual effort.
+
+% ═══════════════════════════════════════════════════════════════
+\section*{Chapter Conclusion}
+
+This chapter has documented the realisation of the three workstreams that constitute the project's technical contribution, presented through the delivered interfaces rather than through source code. The Snowflake Environment Comparator was shown in operation across its connection gate, run configuration, results scorecard, and history, demonstrating a strictly read-only tool that turns environment drift into precise, persisted measurements. Version control and an automated \gls{cicd} pipeline were shown on GitHub, mapping protected branches to environments and routing every change through reviewed pull requests, validation, environment-scoped deployment, and an approval gate before production, with production changes linked to ServiceNow change requests. Finally, the synchronisation solution was shown through its Secure Data Shares and a live run of the synchronisation procedure, confirming the daily, non-destructive realignment of \texttt{DEV} and \texttt{UAT} with \texttt{PROD}.
+
+With the solution implemented and operational, the next chapter evaluates its outcomes: it quantifies the environment drift measured by the comparator, assesses the effect of the synchronisation on environment alignment, reviews the functioning of the \gls{cicd} pipeline, and judges the project against the objectives defined in Chapter~1.
+
+\newpage

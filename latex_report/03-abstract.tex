@@ -1,0 +1,36 @@
+% ═══════════════════════════════════════════════════════════════
+%  Abstract (English & French)
+% ═══════════════════════════════════════════════════════════════
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+
+\noindent\textbf{Keywords:} Snowflake, CI/CD, DataOps, DevOps, Environment Synchronization, GitHub Actions, Data Engineering, IBM, Hakkoda, ARYZTA.
+
+\vspace{0.5cm}
+
+This report documents the technical and methodological work carried out during a final end-of-studies internship conducted at \textbf{IBM Client Innovation Center (CIC) Morocco}, in collaboration with \textbf{Hakkoda}, a Snowflake-specialized data engineering firm recently acquired by IBM. The project was undertaken on behalf of \textbf{ARYZTA}, a leading international bakery corporation that relies on Snowflake as its core data platform for supply chain analytics and operational reporting.
+
+The central challenge addressed in this internship is the critical state of misalignment between ARYZTA's three Snowflake environments: Development (\texttt{DEV}), User Acceptance Testing (\texttt{UAT}), and Production (\texttt{PROD}). Prior to Hakkoda's involvement, the platform had been managed without adherence to DevOps best practices, resulting in significant environment drift---including missing database objects, inconsistent schemas, divergent pipeline configurations, and an absence of version-controlled deployment procedures. As a direct consequence, engineering teams were compelled to apply changes directly to the production environment, substantially elevating the risk of data incidents and operational instability.
+
+This internship addresses these issues through a structured and iterative approach encompassing: a systematic audit of environment discrepancies; a root cause analysis of the observed drift; the design of a multi-environment synchronization strategy; and the design and implementation of a fully automated \textbf{CI/CD pipeline} integrated with \textbf{GitHub}. The resulting pipeline enforces deployment workflows through version-controlled pull request processes, automated validation stages, and environment-specific promotion gates, thereby eliminating the need for manual production deployments.
+
+The project was managed using an \textbf{Agile SCRUM} methodology, with task tracking conducted through \textbf{ServiceNow} and collaborative development managed via \textbf{GitHub}. The outcomes of this work represent a significant improvement in ARYZTA's data platform governance, deployment reliability, and long-term maintainability.
+
+\vspace{1cm}
+\hrule
+\vspace{0.5cm}
+
+\chapter*{Résumé}
+\addcontentsline{toc}{chapter}{Résumé}
+
+\noindent\textbf{Mots-clés:} Snowflake, CI/CD, DataOps, DevOps, Synchronisation d'Environnements, GitHub Actions, Ingénierie des Données, IBM, Hakkoda, ARYZTA.
+
+\vspace{0.5cm}
+
+Ce rapport documente les travaux techniques et méthodologiques réalisés dans le cadre d'un stage de fin d'études effectué au sein de l'\textbf{IBM Client Innovation Center (CIC) Maroc}, en collaboration avec \textbf{Hakkoda}, une société spécialisée dans l'ingénierie des données sur Snowflake, récemment acquise par IBM. Le projet a été mené pour le compte d'\textbf{ARYZTA}, une entreprise internationale de boulangerie dont la plateforme de données repose sur Snowflake pour ses activités analytiques et de reporting opérationnel.
+
+Le principal défi adressé dans ce stage concerne l'état critique de désalignement entre les trois environnements Snowflake d'ARYZTA : Développement (\texttt{DEV}), Test d'Acceptation Utilisateur (\texttt{UAT}) et Production (\texttt{PROD}). En l'absence de pratiques DevOps rigoureuses, des divergences majeures se sont accumulées entre ces environnements, forçant les équipes à effectuer des déploiements directement en production, avec les risques opérationnels associés.
+
+Ce stage apporte une réponse structurée à travers un audit systématique des incohérences, une analyse des causes racines, la conception d'une stratégie de synchronisation multi-environnements, et la mise en œuvre d'un \textbf{pipeline CI/CD} intégré à \textbf{GitHub}. Le projet a été géré selon une méthodologie \textbf{Agile SCRUM}, avec un suivi des tâches via \textbf{ServiceNow}.
+
+\newpage

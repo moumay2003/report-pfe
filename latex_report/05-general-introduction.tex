@@ -1,0 +1,28 @@
+% ═══════════════════════════════════════════════════════════════
+%  General Introduction
+% ═══════════════════════════════════════════════════════════════
+\chapter*{General Introduction}
+\addcontentsline{toc}{chapter}{General Introduction}
+\markboth{General Introduction}{General Introduction}
+
+In contemporary data-driven enterprises, the reliability and consistency of data infrastructure form the backbone of operational excellence and analytical capability. As organizations increasingly migrate their data warehousing workloads to cloud-native platforms, the engineering discipline required to manage those platforms at scale has grown commensurately more demanding. The emergence of \gls{dataops} as a structured practice reflects the industry's recognition that deploying data pipelines and transformations into production without governance, automation, and version control is a significant source of technical debt, operational risk, and business disruption.
+
+This report presents the work conducted during a five-month end-of-studies engineering internship carried out at \textbf{IBM Client Innovation Center (CIC) Morocco}, in collaboration with \textbf{Hakkoda}, a data engineering consultancy specializing in Snowflake platform modernization, recently acquired by IBM. The host project involves the ARYZTA data platform---a Snowflake-based data ecosystem serving the operational and analytical needs of one of the world's largest industrial bakery companies.
+
+The central problem motivating this internship is the state of significant misalignment between ARYZTA's three Snowflake environments. The absence of structured deployment workflows under the previous management team resulted in a progressive drift between the Development, User Acceptance Testing, and Production accounts. Schema inconsistencies, missing objects, and divergent pipeline states had rendered the lower environments unreliable as proxies for production, effectively forcing the engineering team to deploy changes directly into the live environment---a practice fundamentally at odds with sound data engineering and DevOps principles.
+
+The objectives of this internship were therefore threefold: first, to conduct a rigorous audit of the environment discrepancies and identify their root causes; second, to design and implement a comprehensive synchronization strategy to bring all three environments into alignment; and third, to establish a fully automated \gls{cicd} pipeline integrated with GitHub, capable of enforcing governed, reproducible deployments across the environment lifecycle.
+
+\vspace{0.5cm}
+
+\noindent This report is structured as follows:
+
+\begin{itemize}
+  \item \textbf{Chapter 1 --- General Context of the Project} introduces the host organizations (IBM CIC Morocco and Hakkoda), the client (ARYZTA), the project background, its objectives, the identified risks, and the Agile project management approach adopted.
+  \item \textbf{Chapter 2 --- Problem Analysis} provides a rigorous assessment of the current state of the Snowflake platform, including a detailed characterization of the environment discrepancies, their business impact, and a systematic root cause analysis using both technical and organizational lenses.
+  \item \textbf{Chapter 3 --- Solution Design} (forthcoming) presents the architectural decisions and technical design choices underlying the synchronization strategy and CI/CD pipeline.
+  \item \textbf{Chapter 4 --- Implementation} (forthcoming) details the technical realization of the proposed solution, including the pipeline implementation, scripting, and integration with GitHub Actions.
+  \item \textbf{Chapter 5 --- Results and Evaluation} (forthcoming) assesses the outcomes of the implementation against the stated objectives and discusses perspectives for future evolution.
+\end{itemize}
+
+\newpage

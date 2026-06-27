@@ -1,0 +1,44 @@
+% ═══════════════════════════════════════════════════════════════
+%  General Conclusion
+% ═══════════════════════════════════════════════════════════════
+\chapter*{General Conclusion and Perspectives}
+\addcontentsline{toc}{chapter}{General Conclusion and Perspectives}
+\markboth{General Conclusion and Perspectives}{General Conclusion and Perspectives}
+
+This end-of-studies internship, conducted at IBM Client Innovation Center Morocco in collaboration with Hakkoda, has addressed a concrete and consequential challenge in enterprise data engineering: the remediation of a critically misaligned multi-environment Snowflake data platform and the establishment of the DevOps and DataOps practices necessary to prevent the recurrence of such misalignment.
+
+The work documented in this report spans two completed phases of the project. Chapter 1 established the organizational and technical context, introducing the host organizations, the client ARYZTA, and the specific technical problem of environment drift arising from years of ungoverned, manual deployments to the Snowflake production environment. Chapter 2 provided a rigorous analysis of the current platform state, quantifying the scope of discrepancies, characterizing their business impact, and identifying both the organizational and technical root causes that gave rise to them.
+
+The analysis confirms that the central root causes---absence of version control, lack of a deployment governance framework, and the normalization of direct production deployments---are addressable through well-established engineering practices. The solution designed and implemented in the subsequent phases of the project (Chapters 3 and 4, to be developed) centers on a GitHub-integrated CI/CD pipeline that enforces version-controlled, pull-request-based promotion of changes through the DEV-UAT-PROD lifecycle, supported by automated validation and a documented governance framework.
+
+\vspace{0.4cm}
+\noindent\textbf{Key Contributions of This Internship}
+
+The internship has produced the following tangible contributions to the ARYZTA data platform:
+
+\begin{itemize}
+  \item A comprehensive environment audit documenting all discrepancies between DEV, UAT, and PROD across all Snowflake object types.
+  \item A structured root cause analysis identifying the organizational and technical factors underlying the observed environment drift.
+  \item A multi-environment synchronization strategy designed to restore alignment between the three Snowflake accounts.
+  \item A CI/CD pipeline architecture integrating GitHub Actions with Snowflake, enforcing version-controlled deployments with automated validation gates.
+  \item A deployment governance framework defining roles, responsibilities, and change management procedures for the platform.
+\end{itemize}
+
+\vspace{0.4cm}
+\noindent\textbf{Perspectives for Future Work}
+
+The work completed during this internship establishes a solid foundation for the continued evolution of the ARYZTA data platform. Several directions for future development merit consideration:
+
+\begin{itemize}
+  \item \textbf{Adoption of dbt for Transformation Management}: Integrating the data build tool (\gls{dbt}) into the CI/CD pipeline would provide additional benefits in terms of transformation testing, documentation generation, and lineage tracking.
+  \item \textbf{Automated Environment Refresh}: Implementing a mechanism to periodically refresh DEV and UAT with anonymized subsets of PROD data would further strengthen the representativeness of the lower environments for testing purposes.
+  \item \textbf{Data Quality Gates in the Pipeline}: Introducing automated data quality checks as pipeline stages---using frameworks such as Great Expectations or Snowflake's native data quality features---would provide an additional layer of validation before changes reach production.
+  \item \textbf{Expanded RBAC Implementation}: Further refinement of Snowflake's role-based access control model, aligned with the principle of least privilege, would enhance the platform's security posture and governance compliance.
+  \item \textbf{Cost Monitoring and Optimization}: As the platform stabilizes under the new governance framework, attention can be directed toward Snowflake credit consumption optimization, leveraging auto-scaling policies, clustering keys, and materialization strategies.
+\end{itemize}
+
+\vspace{0.4cm}
+
+On a personal level, this internship has provided a formative introduction to enterprise data engineering in a multinational consulting environment. Working within the IBM and Hakkoda teams has exposed me to the realities of large-scale cloud data platform management, the importance of DevOps discipline in sustaining platform health, and the value of structured analytical thinking in diagnosing and addressing complex technical problems. The experience has confirmed my intention to pursue a career in Data Engineering and DataOps, with a particular focus on cloud-native data platform architecture.
+
+\newpage

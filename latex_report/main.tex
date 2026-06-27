@@ -1,0 +1,262 @@
+\documentclass[12pt,a4paper]{report}
+
+% ─────────────────────────────────────────
+%  Encoding & Language
+% ─────────────────────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+
+% ─────────────────────────────────────────
+%  Page Layout
+% ─────────────────────────────────────────
+\usepackage[top=2.5cm, bottom=2.5cm, left=3cm, right=2.5cm]{geometry}
+
+% ─────────────────────────────────────────
+%  Typography
+% ─────────────────────────────────────────
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{setspace}
+\onehalfspacing
+
+% ─────────────────────────────────────────
+%  Graphics & Colors
+% ─────────────────────────────────────────
+\usepackage{graphicx}
+\graphicspath{{image/}{./}}
+\usepackage[table,dvipsnames]{xcolor}
+\definecolor{ibmblue}{RGB}{0,62,135}
+\definecolor{snowblue}{RGB}{41,182,246}
+\definecolor{lightgray}{RGB}{245,245,245}
+\definecolor{darkgray}{RGB}{80,80,80}
+\definecolor{accentblue}{RGB}{0,114,198}
+
+% ─────────────────────────────────────────
+%  Tables
+% ─────────────────────────────────────────
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{booktabs}
+\usepackage{colortbl}
+
+% ─────────────────────────────────────────
+%  Figures & Floats
+% ─────────────────────────────────────────
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+\captionsetup{font=small, labelfont=bf, labelsep=period}
+
+% ─────────────────────────────────────────
+%  Lists
+% ─────────────────────────────────────────
+\usepackage{enumitem}
+\setlist[itemize]{noitemsep, topsep=4pt}
+\setlist[enumerate]{noitemsep, topsep=4pt}
+
+% ─────────────────────────────────────────
+%  Math
+% ─────────────────────────────────────────
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+% ─────────────────────────────────────────
+%  Code Highlighting
+% ─────────────────────────────────────────
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{lightgray},
+  keywordstyle=\color{ibmblue}\bfseries,
+  commentstyle=\color{darkgray}\itshape,
+  stringstyle=\color{snowblue},
+  breaklines=true,
+  frame=single,
+  rulecolor=\color{accentblue},
+  numbers=left,
+  numberstyle=\tiny\color{darkgray},
+  captionpos=b,
+  showstringspaces=false,
+}
+
+% listings has no built-in YAML language; define a minimal one so that
+% GitHub Actions workflow listings (Ch.4 and Appendix B) compile.
+\lstdefinelanguage{yaml}{
+  comment=[l]{\#},
+  morestring=[b]',
+  morestring=[b]",
+  keywords={true,false,null,on,push,pull_request,jobs,steps,uses,with,run,needs,name,env,if,id},
+}
+
+% ─────────────────────────────────────────
+%  Gantt Chart
+% ─────────────────────────────────────────
+\usepackage{pgfgantt}
+\usepackage{pdflscape}
+
+% ─────────────────────────────────────────
+%  TikZ / Diagrams
+% ─────────────────────────────────────────
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, backgrounds}
+
+% ─────────────────────────────────────────
+%  Headers & Footers
+% ─────────────────────────────────────────
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\color{darkgray}\leftmark}
+\fancyhead[R]{\small\color{darkgray}\thepage}
+\fancyfoot[C]{\small\color{darkgray}Snowflake Environment Alignment \& CI/CD Pipeline --- ARYZTA Data Platform}
+\renewcommand{\headrulewidth}{0.5pt}
+\renewcommand{\footrulewidth}{0.3pt}
+
+% ─────────────────────────────────────────
+%  Chapter / Section Title Formatting
+% ─────────────────────────────────────────
+\usepackage{titlesec}
+\titleformat{\chapter}[display]
+  {\normalfont\Large\bfseries\color{ibmblue}}
+  {\chaptertitlename\ \thechapter}{12pt}{\huge\color{ibmblue}}
+\titlespacing*{\chapter}{0pt}{-10pt}{30pt}
+
+\titleformat{\section}
+  {\normalfont\large\bfseries\color{accentblue}}
+  {\thesection}{1em}{}
+\titleformat{\subsection}
+  {\normalfont\normalsize\bfseries\color{darkgray}}
+  {\thesubsection}{1em}{}
+\titleformat{\subsubsection}
+  {\normalfont\normalsize\itshape\color{darkgray}}
+  {\thesubsubsection}{1em}{}
+
+% ─────────────────────────────────────────
+%  Hyperlinks
+% ─────────────────────────────────────────
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=ibmblue,
+    filecolor=accentblue,
+    urlcolor=snowblue,
+    citecolor=accentblue,
+    pdftitle={Snowflake Environment Alignment and CI/CD Pipeline Implementation for ARYZTA Data Platform},
+    pdfauthor={Mouad Moulay Rachid},
+    pdfsubject={End-of-Studies Internship Report --- IBM CIC Morocco / Hakkoda},
+    pdfkeywords={Snowflake, CI/CD, DataOps, DevOps, IBM, Hakkoda, ARYZTA, GitHub, Data Engineering}
+}
+
+% ─────────────────────────────────────────
+%  Bibliography
+% ─────────────────────────────────────────
+\usepackage[numbers,sort&compress]{natbib}
+
+% ─────────────────────────────────────────
+%  Acronyms & Glossary
+% ─────────────────────────────────────────
+\usepackage[acronym,toc]{glossaries}
+\makeglossaries
+\input{glossary}
+
+% ─────────────────────────────────────────
+%  Utility
+% ─────────────────────────────────────────
+\usepackage{pifont}
+\usepackage{mdframed}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins,breakable}
+
+% Callout box style
+\tcbset{
+  notebox/.style={
+    colback=lightgray,
+    colframe=accentblue,
+    fonttitle=\bfseries,
+    title={Note},
+    breakable,
+    before skip=10pt,
+    after skip=10pt,
+  }
+}
+
+% ─────────────────────────────────────────
+%  Custom Commands
+% ─────────────────────────────────────────
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
+\newcommand{\placeholder}[2]{%
+  \begin{tcolorbox}[colback=lightgray, colframe=darkgray!50, title=\texttt{[FIGURE PLACEHOLDER]}, fonttitle=\small\itshape]
+  \centering\color{darkgray}\textit{#1}\\[4pt]\small#2
+  \end{tcolorbox}
+}
+
+% ═══════════════════════════════════════════════════════════════
+\begin{document}
+% ═══════════════════════════════════════════════════════════════
+
+\pagenumbering{roman}
+
+% ── Cover Page ─────────────────────────────────────────────────
+\input{00-coverpage}
+
+% ── Dedication ─────────────────────────────────────────────────
+\input{01-dedication}
+
+% ── Acknowledgements ───────────────────────────────────────────
+\input{02-acknowledgements}
+
+% ── Abstract ───────────────────────────────────────────────────
+\input{03-abstract}
+
+% ── Table of Contents ──────────────────────────────────────────
+\tableofcontents
+\newpage
+
+% ── List of Figures ────────────────────────────────────────────
+\listoffigures
+\addcontentsline{toc}{chapter}{List of Figures}
+\newpage
+
+% ── List of Tables ─────────────────────────────────────────────
+\listoftables
+\addcontentsline{toc}{chapter}{List of Tables}
+\newpage
+
+% ── Acronyms ───────────────────────────────────────────────────
+\printglossary[type=\acronymtype, title=List of Acronyms]
+\addcontentsline{toc}{chapter}{List of Acronyms}
+\newpage
+
+% ═══════════════════════════════════════════════════════════════
+%  Main Content
+% ═══════════════════════════════════════════════════════════════
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+\input{05-general-introduction}
+
+\input{06-chapter1-context}
+
+\input{07-chapter2-analysis}
+
+\input{08-chapter3-design}
+
+\input{09-chapter4-implementation}
+
+\input{10-chapter5-results}
+
+\input{11-general-conclusion}
+
+% ── Bibliography ───────────────────────────────────────────────
+\bibliographystyle{plainnat}
+\bibliography{bibliography}
+\addcontentsline{toc}{chapter}{Bibliography}
+
+% ── Appendices ─────────────────────────────────────────────────
+\appendix
+\input{appendices}
+
+\end{document}
