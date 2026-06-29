@@ -157,11 +157,11 @@ The third workstream deployed the share-based synchronisation designed in Sectio
 \begin{figure}[H]
   \centering
   \includegraphics[width=\linewidth]{data_share.png}
-  \caption{The inbound Secure Data Shares as seen from a consumer account. Each in-scope \texttt{PROD} database is exposed as a dedicated read-only share that the lower environments mount locally for synchronisation.}
+  \caption{The inbound Secure Data Shares as seen from a consumer account. Each in-scope \texttt{PROD} database is exposed as a dedicated read-only share that the lower environments mount locally for synchronisation. (Share names are blurred for confidentiality.)}
   \label{fig:data-share}
 \end{figure}
 
-Figure~\ref{fig:data-share} shows the Secure Data Shares provisioned for the project, viewed from a consumer account's external-sharing catalogue. Each in-scope \texttt{PROD} database is published as its own read-only share---visible here under names following the project's share convention---and mounted as a local database in the \texttt{UAT} and \texttt{DEV} accounts. One of the shares is annotated ``Alignment PROD--UAT'', reflecting its purpose. This realises the provider/consumer architecture of Chapter~3: production data is exposed live and read-only, without being copied, and remains the untouched source of truth.
+Figure~\ref{fig:data-share} shows the Secure Data Shares provisioned for the project, viewed from a consumer account's external-sharing catalogue (the individual share names are blurred for confidentiality). Each in-scope \texttt{PROD} database is published as its own read-only share, following the project's share-naming convention, and mounted as a local database in the \texttt{UAT} and \texttt{DEV} accounts. This realises the provider/consumer architecture of Chapter~3: production data is exposed live and read-only, without being copied, and remains the untouched source of truth.
 
 \subsection{The Synchronisation Procedure in Operation}
 \label{subsec:impl-sp}
@@ -169,7 +169,7 @@ Figure~\ref{fig:data-share} shows the Secure Data Shares provisioned for the pro
 \begin{figure}[H]
   \centering
   \includegraphics[width=\linewidth]{sync_procedure_run.png}
-  \caption{A run of the synchronisation procedure in Snowflake. The procedure is invoked for a share-mounted source schema and a local target schema, and returns a log table recording, per table, the action taken and its outcome.}
+  \caption{A run of the synchronisation procedure in Snowflake. The procedure is invoked for a share-mounted source schema and a local target schema, and returns a log table recording, per table, the action taken and its outcome. (Database names are blurred for confidentiality.)}
   \label{fig:sync-run}
 \end{figure}
 
@@ -178,13 +178,25 @@ Figure~\ref{fig:sync-run} shows the synchronisation procedure executing in Snowf
 \subsection{Daily Scheduling}
 \label{subsec:impl-task}
 
-The procedure is driven on a daily cadence by a Snowflake task in each consumer account. Because the procedure operates at schema granularity, the schedule invokes it once for each in-scope schema of Table~\ref{tab:sync-databases}, passing the appropriate exclusion list so that operational control tables are preserved. The task therefore reduces the entire alignment workload to a single, repeatable, self-documenting daily operation, replacing what had previously been an undocumented and manual effort.
+The procedure is driven on a daily cadence by a Snowflake task in each consumer account. Because the procedure operates at schema granularity, the schedule invokes it once for each in-scope schema, passing the appropriate exclusion list so that operational control tables are preserved. The task therefore reduces the entire alignment workload to a single, repeatable, self-documenting daily operation, replacing what had previously been an undocumented and manual effort.
+
+% ═══════════════════════════════════════════════════════════════
+\section{Limitations}
+\label{sec:impl-limitations}
+
+While the implemented solution meets the objectives set out in Chapter~1, a candid account must also acknowledge the limits of the approach, several of which open directions for future work:
+
+\begin{itemize}
+  \item \textbf{Data-level synchronisation only.} The synchronisation refreshes data and clones missing tables, but it does not reconcile structurally divergent tables automatically; such cases are logged and must be resolved through a governed DDL change in the pipeline. This is a deliberate safety choice rather than an oversight, but it means that full structural convergence still depends on human-authored migrations.
+  \item \textbf{Scope bounded by the main DAG.} Synchronisation covers the fourteen databases touched by the main task DAG. Objects outside that backbone are not synchronised, by design, so their alignment is not guaranteed.
+  \item \textbf{Single-user, local audit tool.} The comparator is operated locally by one engineer rather than running as a shared, always-on service; scaling it to scheduled, multi-user operation would require further engineering.
+  \item \textbf{Daily cadence.} The synchronisation runs once per day, so the lower environments reflect production as of the last run rather than in real time.
+  \item \textbf{Dependence on Secure Data Sharing semantics.} Tables read through a share cannot be cloned directly and are refreshed via a create-table-as-select fallback; this is functionally correct but less efficient than a zero-copy clone for very large tables.
+\end{itemize}
 
 % ═══════════════════════════════════════════════════════════════
 \section*{Chapter Conclusion}
 
-This chapter has documented the realisation of the three workstreams that constitute the project's technical contribution, presented through the delivered interfaces rather than through source code. The Snowflake Environment Comparator was shown in operation across its connection gate, run configuration, results scorecard, and history, demonstrating a strictly read-only tool that turns environment drift into precise, persisted measurements. Version control and an automated \gls{cicd} pipeline were shown on GitHub, mapping protected branches to environments and routing every change through reviewed pull requests, validation, environment-scoped deployment, and an approval gate before production, with production changes linked to ServiceNow change requests. Finally, the synchronisation solution was shown through its Secure Data Shares and a live run of the synchronisation procedure, confirming the daily, non-destructive realignment of \texttt{DEV} and \texttt{UAT} with \texttt{PROD}.
-
-With the solution implemented and operational, the next chapter evaluates its outcomes: it quantifies the environment drift measured by the comparator, assesses the effect of the synchronisation on environment alignment, reviews the functioning of the \gls{cicd} pipeline, and judges the project against the objectives defined in Chapter~1.
+This chapter has documented the realisation of the three workstreams that constitute the project's technical contribution, presented through the delivered interfaces rather than through source code. The Snowflake Environment Comparator was shown in operation across its connection gate, run configuration, results scorecard, and history, demonstrating a strictly read-only tool that turns environment drift into precise, persisted measurements. Version control and an automated \gls{cicd} pipeline were shown on GitHub, mapping protected branches to environments and routing every change through reviewed pull requests, validation, environment-scoped deployment, and an approval gate before production, with production changes linked to ServiceNow change requests. Finally, the synchronisation solution was shown through its Secure Data Shares and a live run of the synchronisation procedure, confirming the daily, non-destructive realignment of \texttt{DEV} and \texttt{UAT} with \texttt{PROD}. Together, and within the limitations noted above, these artefacts deliver the audit, synchronisation, pipeline, integration, and governance objectives defined in Chapter~1, transforming a previously ungoverned platform into a measurable, version-controlled, and continuously aligned data environment.
 
 \newpage

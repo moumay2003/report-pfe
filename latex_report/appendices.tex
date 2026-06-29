@@ -2,46 +2,6 @@
 %  Appendices
 % ═══════════════════════════════════════════════════════════════
 
-\chapter{Environment Audit Checklist}
-\label{app:audit-checklist}
-
-The following table provides a representative extract of the environment audit checklist used to systematically compare Snowflake objects across DEV, UAT, and PROD. The full audit document comprises several hundred rows covering all schemas and object types in the ARYZTA platform.
-
-\begin{longtable}{l l c c c p{4.5cm}}
-  \toprule
-  \rowcolor{ibmblue!15}
-  \textbf{Schema} & \textbf{Object Name} & \textbf{Type} & \textbf{DEV} & \textbf{UAT} & \textbf{PROD Notes} \\
-  \midrule
-  \endfirsthead
-  \multicolumn{6}{c}{\small\itshape (Continued from previous page)} \\
-  \toprule
-  \rowcolor{ibmblue!15}
-  \textbf{Schema} & \textbf{Object Name} & \textbf{Type} & \textbf{DEV} & \textbf{UAT} & \textbf{PROD Notes} \\
-  \midrule
-  \endhead
-  \bottomrule
-  \endfoot
-  \bottomrule
-  \caption{Extract: Environment Audit Checklist}
-  \label{tab:audit-checklist}
-  \endlastfoot
-
-  RAW         & ORDERS\_STAGING        & Table     & \ding{55} & \ding{55} & Present, 24 columns \\
-  RAW         & PRODUCTS\_STAGING      & Table     & \ding{55} & \ding{73} & UAT missing 3 cols \\
-  TRANSFORM   & SP\_LOAD\_ORDERS       & Procedure & \ding{55} & \ding{55} & Updated v3 in PROD \\
-  TRANSFORM   & SP\_CALC\_MARGINS      & Procedure & \ding{73} & \ding{73} & DEV/UAT on v1, PROD v2 \\
-  ORCHESTRATE & TASK\_DAILY\_LOAD      & Task      & \ding{55} & \ding{55} & Scheduled, PROD only \\
-  ORCHESTRATE & TASK\_HOURLY\_REFRESH  & Task      & \ding{55} & \ding{55} & Missing in both \\
-  ANALYTICS   & VW\_SALES\_SUMMARY     & View      & \ding{73} & \ding{51} & DEV definition outdated \\
-  ANALYTICS   & VW\_INVENTORY\_STATUS  & View      & \ding{55} & \ding{73} & Critical reporting view \\
-  INGEST      & STG\_CUSTOMER\_ORDERS  & Stage     & \ding{55} & \ding{55} & S3 integration, PROD only \\
-  INGEST      & STM\_ORDER\_CHANGES    & Stream    & \ding{55} & \ding{55} & CDC stream, PROD only \\
-\end{longtable}
-
-\noindent\footnotesize \ding{51} = Present and consistent\quad \ding{55} = Absent\quad \ding{73} = Partially present or inconsistent
-
-% ─────────────────────────────────────────────────────────────
-
 \chapter{Glossary of Technical Terms}
 \label{app:glossary}
 

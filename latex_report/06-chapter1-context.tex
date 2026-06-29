@@ -5,7 +5,7 @@
 \label{chap:context}
 \section*{Chapter Introduction}
 
-This first chapter situates the internship within its professional and technical context. It begins with a presentation of the host organizations---IBM CIC Morocco and Hakkoda---and introduces the client company, ARYZTA, along with the role of Snowflake in its data ecosystem. The chapter then proceeds to articulate the problem addressed by the project, outlining the existing environment architecture, the discrepancies observed, and the risks they pose to ARYZTA's data operations. It concludes with a statement of the project's objectives and a description of the Agile management methodology employed throughout the internship.
+This first chapter situates the internship within its professional and technical context. It begins with a presentation of the host organization---IBM Client Innovation Center (CIC) Morocco---and introduces the client company, ARYZTA, along with the role of Snowflake in its data ecosystem. The chapter then proceeds to articulate the problem addressed by the project, outlining the existing environment architecture, the discrepancies observed, and the risks they pose to ARYZTA's data operations. It concludes with a statement of the project's objectives and a description of the Agile delivery framework employed throughout the internship.
 
 % ─────────────────────────────────────────────────────────────
 \section{General Overview of the Host Organization}
@@ -87,46 +87,26 @@ More specifically the combined entity will ensure:
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=\textwidth]{cic_org_chart.png}
-  \caption{CIC Organizational Chart (source: IBM ``Confidential'')}
+  \includegraphics[width=\textwidth]{cic_org_chart_new.png}
+  \caption{CIC Morocco organizational chart (source: IBM, ``Confidential'')}
+  \label{fig:cic-org-chart}
 \end{figure}
 
-Based on Casablanca, CIC Morocco is led by Mr. Mohamed Berrada and has two main services as follows:
+Based in Casablanca, CIC Morocco is organized around two main service lines, each composed of several practices led by a service line leader and staffed by delivery teams:
 
 \begin{itemize}
-  \item Business Transformation Services (BTS)
-  \item Hybrid Cloud Services (HCS)
+  \item \textbf{Business Transformation Services (BTS)}, which delivers transformation consulting to clients through four practices: Customer Transformation (CT), Data \& Technology Transformation (DTT), Finance Supply Chain Transformation (FSCT), and Industry Transformation (IT).
+  \item \textbf{Hybrid Cloud Services (HCS)}, which addresses cloud modernization and operations through Hybrid Cloud Management (HCM) and Hybrid Cloud Transformation (HCT).
 \end{itemize}
 
-The BTS is also led by Mr. Mohamed Berrada, and it is formed by several services for offering transformation consulting to the client such as Customer Transformation, Industry transformation, Data\&Technology Transformation (DTT), and Finances Supply chain Transformation (FSCT).
-
-The DDT service line is led by Mr. Nabil RIFKI and composed of numerous data services including Data Strategy, Amazon Web Services (AWS), Data services, Microsoft, and Automation.
-
-In the next section, we will present the Microsoft team and its organizational chart.
-
-\subsection{Hakkoda: Snowflake Data Engineering Expertise}
-\label{subsec:hakkoda}
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.75\linewidth]{hakkoda.png}
-    \caption{Hakkoda}
-    \label{fig:hakkoda-logo}
-\end{figure}
-
-\textbf{Hakkoda} is a data engineering consultancy that built its reputation as one of the foremost Snowflake-specialized partners in North America and Europe. Founded with a focus on cloud data platform modernization, Hakkoda developed deep expertise in Snowflake architecture, \gls{dbt} pipeline development, data vault modeling, and DataOps automation. The company served a diverse portfolio of enterprise clients across the retail, manufacturing, financial services, and food and beverage sectors.
-
-Hakkoda's service offering centered on helping organizations migrate from legacy on-premises data warehouses to Snowflake, design scalable data architectures, and implement \gls{cicd} practices for data engineering workflows. The firm distinguished itself from generalist consulting firms through its Snowflake-native engineering methodology and its emphasis on automation, repeatability, and governance.
-
-In 2023, Hakkoda was acquired by IBM, a strategic move that allowed IBM to significantly reinforce its Snowflake practice capabilities within the CIC network. The acquisition brought Hakkoda's engineering talent, proprietary accelerators, and Snowflake Elite Partner status under the IBM umbrella, creating a combined offering that marries IBM's global delivery scale with Hakkoda's specialized cloud data engineering competencies.
-
-The team responsible for the ARYZTA project operates under the Hakkoda brand within IBM, and is composed of senior Data Engineers, DataOps specialists, and Snowflake architects with extensive experience in enterprise data platform modernization. This internship was conducted within this team, contributing directly to the Snowflake environment alignment and CI/CD implementation workstream.
+The present internship was carried out within the \textbf{Data \& Technology Transformation (DTT)} practice of the BTS service line, which groups the centre's data-engineering capabilities. It is within this practice that the Snowflake data-platform engagement for ARYZTA---the subject of this report---is delivered.
 
 \subsection{ARYZTA: The Client Organization}
 \label{subsec:aryzta}
 
 \begin{figure}[H]
     \centering
-    \placeholder{ARYZTA company logo}{Image to be inserted (file \texttt{aryzta.png}).}
+    \includegraphics[width=0.55\linewidth]{aryzta.png}
     \caption{ARYZTA}
     \label{fig:aryzta}
 \end{figure}
@@ -151,9 +131,9 @@ The platform is structured around three separate Snowflake accounts---Developmen
 \subsection{Context and Motivation}
 \label{subsec:context-motivation}
 
-The ARYZTA data platform was managed prior to Hakkoda's involvement by a third-party consultancy. During that period, the platform underwent extensive development, but without adherence to structured DevOps or DataOps practices. The absence of a version-controlled deployment workflow, combined with a culture of direct production modifications, resulted in a state of progressive environment drift that had accumulated over a period of several years.
+The ARYZTA data platform was managed prior to IBM involvement by a third-party consultancy. During that period, the platform underwent extensive development, but without adherence to structured DevOps or DataOps practices. The absence of a version-controlled deployment workflow, combined with a culture of direct production modifications, resulted in a state of progressive environment drift that had accumulated over a period of several years.
 
-When Hakkoda assumed responsibility for the platform, the team was confronted with a data infrastructure in which the three Snowflake environments---\texttt{DEV}, \texttt{UAT}, and \texttt{PROD}---had diverged to such a degree that \texttt{PROD} could no longer be considered a faithful replica of any formally documented state. Tables, stored procedures, tasks, streams, and views existed in production that had no counterpart in the lower environments, and vice versa. Schema structures were inconsistent across environments, and pipeline configurations had been individually tuned in production without those changes being propagated back to \texttt{DEV} or \texttt{UAT}.
+When IBM assumed responsibility for the platform, the team was confronted with a data infrastructure in which the three Snowflake environments---\texttt{DEV}, \texttt{UAT}, and \texttt{PROD}---had diverged to such a degree that \texttt{PROD} could no longer be considered a faithful replica of any formally documented state. Tables, stored procedures, tasks, streams, and views existed in production that had no counterpart in the lower environments, and vice versa. Schema structures were inconsistent across environments, and pipeline configurations had been individually tuned in production without those changes being propagated back to \texttt{DEV} or \texttt{UAT}.
 
 This situation created a self-reinforcing problem: because \texttt{DEV} and \texttt{UAT} were not aligned with \texttt{PROD}, testing new features or changes in lower environments provided no reliable guarantee of behavior in production. As a result, engineers were routinely compelled to bypass the lower environments and apply changes directly to \texttt{PROD}---a practice that further exacerbated the drift and increased the probability of production incidents.
 
@@ -208,20 +188,20 @@ The combination of environment drift and ungoverned deployment practices exposes
 \subsection{Specific Problem Addressed}
 \label{subsec:specific-problem}
 
-Based on the preliminary assessment conducted at the outset of the internship, the specific technical problem addressed in this project can be formally defined as follows:
+Based on the preliminary assessment conducted at the outset of the internship, the problem can be understood as the conjunction of two distinct but mutually reinforcing gaps. The first is a \textbf{measurement gap}: the team had no reliable, safe, and repeatable way to determine \emph{how far} the three environments had actually diverged, since the only authoritative record of each environment's state was the environment itself, and inspecting production for comparison purposes is inherently risky. The second is a \textbf{governance gap}: even where divergence was understood, there existed no version-controlled, automated, and auditable mechanism to correct it and to keep the environments aligned thereafter. The first gap makes the problem invisible; the second makes it irreversible. The specific technical problem addressed in this project can therefore be formally defined as follows:
 
 \begin{tcolorbox}[notebox, title={Problem Statement}]
-ARYZTA's Snowflake data platform currently operates across three environments---DEV, UAT, and PROD---that have diverged significantly in schema structure, object definitions, and pipeline configuration due to years of ungoverned, manual, and undocumented deployments. The absence of a version-controlled deployment process and an automated CI/CD pipeline prevents the engineering team from safely and reproducibly promoting changes through the environment lifecycle, forcing direct production deployments and continuously increasing the risk of data platform failures.
+ARYZTA's Snowflake data platform operates across three environments---\texttt{DEV}, \texttt{UAT}, and \texttt{PROD}---that have diverged significantly in schema structure, object definitions, and pipeline configuration after years of ungoverned, manual, and undocumented deployments. The team possesses neither an instrument to \emph{measure} this divergence without endangering production, nor a version-controlled, automated process to \emph{remediate} it and prevent its recurrence. As a consequence, the lower environments cannot be trusted as proxies for production, changes are applied directly to \texttt{PROD}, and the risk of data-platform incidents grows continuously. The project must therefore deliver, jointly, a safe diagnostic capability and a governed remediation capability.
 \end{tcolorbox}
 
 This problem encompasses the following specific technical dimensions:
 
 \begin{enumerate}
-  \item \textbf{Environment Synchronization}: DEV and UAT do not accurately reflect the PROD state, making lower-environment testing unreliable.
-  \item \textbf{Missing Snowflake Objects}: Numerous tables, stored procedures, tasks, and streams exist in PROD that are absent from DEV and/or UAT.
-  \item \textbf{Inconsistent Schema Definitions}: Object definitions (column types, constraints, default values) differ across environments, introducing transformation failures when deployments are attempted.
-  \item \textbf{Absent Deployment Automation}: There is no automated pipeline to validate, test, and promote SQL-based changes across environments in a controlled manner.
-  \item \textbf{Lack of Version Control}: No central repository tracks the authoritative state of the Snowflake codebase, making the current platform state non-reproducible.
+  \item \textbf{Absence of a Safe Diagnostic Instrument}: No tooling existed to compare the environments object by object. Any comparison performed by hand risked issuing write operations against production, so the true extent of the drift was simply unknown.
+  \item \textbf{Environment Misalignment}: \texttt{DEV} and \texttt{UAT} do not accurately reflect the \texttt{PROD} state, so lower-environment testing offers no reliable guarantee of production behaviour. The divergence affects even the platform's operational backbone---the main task DAG, whose processing alone spans fourteen databases.
+  \item \textbf{Missing Snowflake Objects}: Tables, stored procedures, tasks, streams, and other objects present in \texttt{PROD} have no counterpart in \texttt{DEV} and/or \texttt{UAT}, making full end-to-end pipeline testing in the lower environments structurally impossible.
+  \item \textbf{Inconsistent Object Definitions}: Where objects do exist on both sides, their definitions diverge---column data types, precision, nullability, default values, and code (DDL) bodies---introducing transformation failures that surface only at scale in production.
+  \item \textbf{Absent Deployment Automation and Version Control}: No central repository tracks the authoritative state of the Snowflake codebase, and no automated pipeline validates, promotes, and verifies changes across environments. The current platform state is consequently neither reproducible nor auditable.
 \end{enumerate}
 
 \subsection{Project Objectives}
@@ -237,13 +217,12 @@ In response to the identified problem, the following project objectives were for
     \rowcolor{ibmblue!15}
     \textbf{\#} & \textbf{Objective} & \textbf{Description} \\
     \midrule
-    O1 & Environment Audit       & Systematically document all discrepancies between DEV, UAT, and PROD across all Snowflake object types. \\
-    O2 & Root Cause Analysis     & Identify and characterize the technical and organizational factors that led to the observed environment drift. \\
-    O3 & Synchronization Strategy & Design a phased approach to bring DEV and UAT into alignment with PROD. \\
-    O4 & CI/CD Pipeline          & Implement an automated deployment pipeline integrated with GitHub that enforces version-controlled promotions. \\
-    O5 & GitHub Integration      & Establish a Git-based development workflow with branch protection rules and pull request review gates. \\
-    O6 & Governance Framework    & Define and document deployment policies, role assignments, and environment access controls. \\
-    O7 & Documentation           & Produce comprehensive technical documentation covering the architecture, the pipeline, and the onboarding process. \\
+    O1 & Environment Audit       & Systematically detect and quantify all discrepancies between DEV, UAT, and PROD across every Snowflake object type, by means of a safe, repeatable diagnostic instrument. \\
+    O2 & Synchronization Strategy & Design and apply an approach to bring DEV and UAT into alignment with PROD and to keep them aligned on an ongoing basis. \\
+    O3 & CI/CD Pipeline          & Implement an automated deployment pipeline integrated with GitHub that enforces version-controlled promotions. \\
+    O4 & GitHub Integration      & Establish a Git-based development workflow with branch protection rules and pull request review gates. \\
+    O5 & Governance Framework    & Define and document deployment policies, role assignments, and environment access controls. \\
+    O6 & Documentation           & Produce comprehensive technical documentation covering the architecture, the pipeline, and the onboarding process. \\
     \bottomrule
   \end{tabularx}
   \caption{Project Objectives Summary}
@@ -254,24 +233,51 @@ In response to the identified problem, the following project objectives were for
 \section{Project Management}
 \label{sec:project-mgmt}
 
-\subsection{Agile Methodology: SCRUM}
-\label{subsec:scrum}
+\subsection{Agile Delivery Framework}
+\label{subsec:agile}
 
-The project was managed in accordance with the \textbf{Agile SCRUM} framework, a widely adopted iterative methodology in software and data engineering contexts. SCRUM's emphasis on short delivery cycles, continuous feedback, and adaptive planning made it particularly well-suited to the nature of this project, where the full scope of discrepancies between environments could only be determined progressively as the investigation advanced.
+The project was delivered using an Agile, ServiceNow-driven workflow that combines the cadence of Scrum with the continuous, ticket-based flow of Kanban~\citep{schwaber2020scrum}. Every unit of work originates as a ServiceNow ticket and advances through a well-defined lifecycle---backlog triage and refinement, requirements and data analysis, development, testing and validation, delivery, and closure---with a continuous feedback loop that returns new requirements to the backlog. This flow is illustrated in Figure~\ref{fig:agile-kanban}. The model suited a project whose scope could only be determined progressively, as the audit revealed the true extent of the environment drift.
 
-The SCRUM workflow was structured around the following recurring ceremonies and artefacts:
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{agile_kanban_flow.png}
+  \caption{The Agile, ServiceNow-driven delivery flow: each ticket progresses from backlog through analysis, development, validation, and delivery to closure, feeding continuous improvement.}
+  \label{fig:agile-kanban}
+\end{figure}
+
+\subsubsection{Sprint Structure}
+
+The team operated on \textbf{one-week sprints}, with retrospectives folded in at a monthly cadence rather than every sprint, drawing on the Scrum framework's standard ceremonies adapted to the team's delivery rhythm:
 
 \begin{itemize}
-  \item \textbf{Sprint Planning}: At the beginning of each two-week sprint, the team reviewed the backlog and selected a set of user stories and technical tasks to be completed within the sprint. Effort estimation was conducted using story points.
-  \item \textbf{Daily Stand-ups}: Short daily synchronization meetings (15 minutes) allowed team members to communicate progress, identify blockers, and coordinate cross-functional dependencies.
-  \item \textbf{Sprint Reviews}: At the end of each sprint, completed deliverables were demonstrated to stakeholders, providing an opportunity for feedback and course correction.
-  \item \textbf{Sprint Retrospectives}: The team reflected on the process itself---identifying what worked well, what could be improved, and what actions would be taken in the next sprint.
-  \item \textbf{Backlog Refinement}: The Product Backlog was continuously groomed to ensure that upcoming stories were well-defined, estimated, and prioritized.
+    \item \textbf{Monday} --- sprint planning: backlog review, story estimation, and a written commitment to the week's deliverables.
+    \item \textbf{Tuesday to Friday} --- execution: development, testing, troubleshooting, and the documentation that accompanies each story.
+    \item \textbf{Friday morning} --- sprint review: live demonstration of finished work to stakeholders, with feedback captured in writing.
+    \item \textbf{Last Friday afternoon of each month} --- retrospective: a structured team conversation about what went well, what stalled, and what to change in the next four-sprint window.
 \end{itemize}
 
-\subsubsection{Tooling and Collaboration Infrastructure}
+Daily stand-ups (15 minutes) maintained team synchronization and surfaced blockers quickly.
 
-The project made use of the following tools to support SCRUM execution:
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{agile_sprint_structure.png}
+    \caption{Agile sprint structure used throughout the internship.}
+    \label{fig:agile_sprint_structure}
+\end{figure}
+
+\subsubsection{Work Categorization}
+
+Sprint work was typically distributed across three categories:
+
+\begin{itemize}
+    \item \textbf{Enhancements:} implementing new business logic, adding data-quality checks, and optimizing transformations (planned work).
+    \item \textbf{Investigations:} root-cause analysis for data-quality issues, performance bottlenecks, or pipeline failures (reactive work).
+    \item \textbf{Documentation:} runbooks, architecture diagrams, data lineage, and operational procedures (knowledge management).
+\end{itemize}
+
+\subsection{Tooling and Collaboration Infrastructure}
+
+The project made use of the following tools to support delivery:
 
 \begin{table}[H]
   \centering
@@ -281,6 +287,7 @@ The project made use of the following tools to support SCRUM execution:
     \rowcolor{ibmblue!15}
     \textbf{Tool} & \textbf{Category} & \textbf{Usage} \\
     \midrule
+    Snowflake  & Cloud Data Platform    & The \texttt{DEV}, \texttt{UAT}, and \texttt{PROD} data environments; Secure Data Sharing for synchronization; metadata source for the audit tool \\
     ServiceNow & ITSM / Ticketing       & Sprint backlog, task tracking, incident management, change request documentation \\
     GitHub     & Version Control        & Source code repository, branch management, pull request workflow, CI/CD pipeline triggers \\
     GitHub Actions & CI/CD Automation   & Automated deployment pipeline execution, environment promotion workflows \\
@@ -297,76 +304,30 @@ The use of \textbf{ServiceNow} as the primary ticketing platform is noteworthy, 
 \subsection{Project Timeline}
 \label{subsec:gantt}
 
-The internship was structured into six sequential phases, each corresponding to a distinct set of deliverables and outcomes. The phases are described below and visualized in the Gantt chart that follows.
+The internship spanned approximately four and a half months, from \textbf{16 February 2026} to \textbf{1 July 2026}, and was organised into six sequential phases. Each phase corresponds to a distinct set of deliverables and outcomes, summarised below and visualised in the Gantt chart of Figure~\ref{fig:gantt}.
 
 \begin{enumerate}
-  \item \textbf{Onboarding and Environment Discovery} (Weeks 1--2): Familiarization with the Snowflake platform, IBM/Hakkoda tooling, and the ARYZTA project context. Initial access provisioning and documentation review.
-  \item \textbf{Environment Audit and Discrepancy Analysis} (Weeks 3--5): Systematic comparison of DEV, UAT, and PROD environments across all object types. Documentation of all identified discrepancies in a structured audit report.
-  \item \textbf{Root Cause Analysis and Strategy Design} (Weeks 6--8): Investigation of the origins of environment drift. Design of the synchronization and CI/CD strategy, including architecture decisions and tooling selection.
-  \item \textbf{CI/CD Pipeline Implementation} (Weeks 9--14): Development of the automated deployment pipeline using GitHub Actions, including scripting of validation, deployment, and rollback procedures.
-  \item \textbf{Environment Synchronization Execution} (Weeks 15--17): Phased application of the synchronization strategy to bring DEV and UAT into alignment with PROD.
-  \item \textbf{Testing, Documentation, and Handover} (Weeks 18--20): End-to-end pipeline testing, production of technical documentation, and knowledge transfer to the ARYZTA and Hakkoda teams.
+  \item \textbf{Onboarding and Environment Discovery} (Weeks 1--2): Access provisioning and familiarisation with the Snowflake platform, the team's tooling, and the ARYZTA project context.
+  \item \textbf{Environment Audit and Discrepancy Analysis} (Weeks 3--5): Development of the read-only comparison tool and a systematic audit of the \texttt{DEV}, \texttt{UAT}, and \texttt{PROD} environments, with all identified discrepancies documented.
+  \item \textbf{Root Cause Analysis and Strategy Design} (Weeks 6--8): Investigation of the origins of the environment drift and design of the synchronisation strategy and CI/CD architecture, including tooling selection.
+  \item \textbf{CI/CD Pipeline Implementation} (Weeks 9--14): Establishment of the GitHub repository and branching model and development of the GitHub Actions workflow, with automated validation and environment-scoped deployment.
+  \item \textbf{Environment Synchronization Execution} (Weeks 15--17): Provisioning of the Secure Data Shares and the synchronisation procedure, and phased realignment of \texttt{DEV} and \texttt{UAT} with \texttt{PROD}.
+  \item \textbf{Testing, Documentation, and Handover} (Weeks 18--20): End-to-end testing of the pipeline, production of the technical documentation, and knowledge transfer to the client and delivery teams.
 \end{enumerate}
 
-\newpage
-\begin{landscape}
 \begin{figure}[H]
   \centering
-  \begin{ganttchart}[
-      hgrid,
-      vgrid={*{6}{draw=none}, dotted},
-      x unit=0.55cm,
-      y unit title=0.7cm,
-      y unit chart=0.65cm,
-      title height=1,
-      title label font=\small\bfseries,
-      bar/.style={fill=ibmblue!70, rounded corners=1pt},
-      bar label font=\small,
-      group label font=\small\bfseries,
-      milestone label font=\small,
-      link/.style={->, thick, accentblue},
-      bar height=0.5,
-    ]{1}{20}
-    \gantttitle{Internship Timeline (Weeks)}{20} \\
-    \gantttitlelist{1,...,20}{1} \\
-
-    \ganttgroup{Phase 1: Onboarding}{1}{2} \\
-    \ganttbar{Environment discovery}{1}{2} \\
-    \ganttbar{Tool access setup}{1}{2} \\
-
-    \ganttgroup{Phase 2: Audit}{3}{5} \\
-    \ganttbar{DEV/UAT/PROD comparison}{3}{5} \\
-    \ganttbar{Discrepancy documentation}{4}{5} \\
-
-    \ganttgroup{Phase 3: Analysis \& Design}{6}{8} \\
-    \ganttbar{Root cause analysis}{6}{7} \\
-    \ganttbar{Architecture design}{7}{8} \\
-
-    \ganttgroup{Phase 4: CI/CD Implementation}{9}{14} \\
-    \ganttbar{GitHub repo setup}{9}{9} \\
-    \ganttbar{Pipeline scripting}{9}{13} \\
-    \ganttbar{Pipeline testing}{12}{14} \\
-
-    \ganttgroup{Phase 5: Synchronization}{15}{17} \\
-    \ganttbar{DEV sync execution}{15}{16} \\
-    \ganttbar{UAT sync execution}{16}{17} \\
-
-    \ganttgroup{Phase 6: Docs \& Handover}{18}{20} \\
-    \ganttbar{Technical documentation}{18}{19} \\
-    \ganttbar{Knowledge transfer}{19}{20} \\
-    \ganttmilestone{Final delivery}{20}
-
-  \end{ganttchart}
-  \caption{Project Gantt Chart --- Internship Timeline}
+  \includegraphics[width=\linewidth]{gantt_timeline.png}
+  \caption{Project Gantt chart --- internship timeline (16 February -- 1 July 2026).}
   \label{fig:gantt}
 \end{figure}
-\end{landscape}
+
 
 \section*{Chapter Conclusion}
 
-This chapter has established the organizational and technical foundation upon which the remainder of this report is built. The host organizations---IBM CIC Morocco and Hakkoda---bring complementary capabilities to the ARYZTA engagement: IBM's global delivery infrastructure and enterprise credibility, and Hakkoda's Snowflake-native engineering expertise. The client, ARYZTA, operates a mission-critical Snowflake data platform that has suffered from years of ungoverned deployment practices, resulting in a state of environment drift that constrains the engineering team's ability to develop and deliver platform enhancements safely.
+This chapter has established the organizational and technical foundation upon which the remainder of this report is built. The host organization---IBM Client Innovation Center (CIC) Morocco, and specifically its Data \& Technology Transformation practice---delivers the Snowflake data-platform engagement for the client, ARYZTA. ARYZTA operates a mission-critical Snowflake data platform that has suffered from years of ungoverned deployment practices, resulting in a state of environment drift that constrains the engineering team's ability to develop and deliver platform enhancements safely.
 
-The project objectives are clearly defined: to audit and resolve the environment discrepancies, to implement a CI/CD pipeline that enforces version-controlled deployments, and to establish a governance framework that will prevent a recurrence of the current situation. The Agile SCRUM methodology, supported by ServiceNow and GitHub, provides the structured delivery framework within which these objectives are pursued.
+The project objectives are clearly defined: to audit and quantify the environment discrepancies through a safe diagnostic instrument, to synchronize the lower environments with production, to implement a CI/CD pipeline that enforces version-controlled deployments, and to establish a governance framework that will prevent a recurrence of the current situation. The Agile delivery framework, supported by ServiceNow and GitHub, provides the structured delivery model within which these objectives are pursued.
 
 The following chapter presents a rigorous analysis of the current state of the platform, including a detailed characterization of the discrepancies observed, their operational impact, and the factors that gave rise to them.
 

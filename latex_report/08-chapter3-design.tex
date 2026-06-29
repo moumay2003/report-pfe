@@ -19,7 +19,7 @@ The two parts are deliberately sequenced to mirror the engineering logic of the 
 \section{Solution Overview}
 \label{sec:solution-overview}
 
-The solution comprises two engineered artefacts that together address objectives O1 through O3 defined in Chapter~1 (environment audit, root cause analysis, and synchronisation strategy). Their roles are summarised in Table~\ref{tab:design-objectives}.
+The solution comprises two engineered artefacts that together address objectives O1 and O2 defined in Chapter~1 (environment audit and synchronisation strategy). Their roles are summarised in Table~\ref{tab:design-objectives}.
 
 \begin{table}[H]
 \centering
@@ -38,11 +38,10 @@ The solution comprises two engineered artefacts that together address objectives
 \midrule
 Snowflake Environment Comparator &
 Diagnosis and read-only comparison of Snowflake environments &
-$\bullet$ \textbf{O1}: Audit of schema and data differences \newline
-$\bullet$ \textbf{O2}: Identification and quantification of environment drift \\
+\textbf{O1}: Audit and quantification of schema and data differences across environments \\
 Synchronisation Strategy &
 Controlled remediation using Secure Data Sharing &
-$\bullet$ \textbf{O3}: Synchronisation of \texttt{DEV} and \texttt{UAT} with \texttt{PROD} \\
+\textbf{O2}: Synchronisation of \texttt{DEV} and \texttt{UAT} with \texttt{PROD} \\
 \bottomrule
 \end{tabularx}
 \caption{Alignment between the developed artefacts and the project objectives.}
@@ -64,44 +63,20 @@ The design is governed by four principles that recur throughout this chapter:
 
 The \textbf{Snowflake Environment Comparator} is a single-user application that compares two Snowflake environments---designated \emph{source} and \emph{target}---and reports, for every database object in scope, one of four statuses: \texttt{MATCH}, \texttt{MISSING\_IN\_SOURCE}, \texttt{MISSING\_IN\_TARGET}, or \texttt{DRIFT}. It produces a match-rate scorecard, supports drill-down to the level of individual attributes, and retains a queryable history of past runs. The application is implemented as a Streamlit interface over a layered Python codebase, with all comparison state persisted locally in an SQLite database accessed through SQLAlchemy.
 
-The following subsections present the architecture through three design views---the system context, the persistence data model, and the dynamics of a comparison run---followed by a description of the object types compared and the criteria applied to each.
+The following subsections present the architecture through three design views---an architecture overview, the persistence data model, and the dynamics of a comparison run---followed by a description of the object types compared and the criteria applied to each.
 
-% ── 1. System context ────────────────────────────────────────
-\subsection{System Context}
+% ── 1. Architecture overview ─────────────────────────────────
+\subsection{Architecture Overview}
 \label{subsec:sys-context}
 
 \begin{figure}[H]
   \centering
-  \begin{tikzpicture}[
-      font=\small,
-      node distance=1.0cm and 1.8cm,
-      box/.style={rectangle, rounded corners, draw=accentblue, thick, fill=lightgray, align=center, minimum height=1cm, minimum width=2.6cm, inner sep=4pt},
-      store/.style={cylinder, shape border rotate=90, aspect=0.3, draw=darkgray, thick, fill=snowblue!15, align=center, minimum height=1.2cm, minimum width=2.2cm},
-      sf/.style={cylinder, shape border rotate=90, aspect=0.3, draw=green!55!black, very thick, fill=green!8, align=center, minimum height=1.3cm, minimum width=2.4cm},
-      ro/.style={-{Stealth}, thick, green!55!black},
-      rw/.style={<->, thick, accentblue},
-      plain/.style={-{Stealth}, thick, darkgray},
-    ]
-    \node[box] (user) {\textbf{Data engineer}};
-    \node[box, right=of user] (app) {Streamlit app\\\texttt{snowflake\_comparator}};
-    \node[store, below=of app] (sqlite) {SQLite\\\texttt{data/comparator.db}\\(SQLAlchemy)};
-    \node[sf, above right=0.4cm and 1.8cm of app] (src) {Snowflake\\\textbf{SOURCE}};
-    \node[sf, below right=0.4cm and 1.8cm of app] (tgt) {Snowflake\\\textbf{TARGET}};
-
-    \draw[plain] (user) -- node[above, font=\scriptsize] {browser UI} (app);
-    \draw[rw] (app) -- node[right, font=\scriptsize] {persist runs} (sqlite);
-    \draw[ro] (app) -- node[above, sloped, font=\scriptsize] {READ-ONLY} (src);
-    \draw[ro] (app) -- node[below, sloped, font=\scriptsize] {READ-ONLY} (tgt);
-
-    \begin{scope}[on background layer]
-      \node[draw=darkgray!40, dashed, rounded corners, fit=(user)(app)(sqlite), inner sep=10pt, label={[font=\scriptsize\itshape, darkgray]above:Local host (single user)}] {};
-    \end{scope}
-  \end{tikzpicture}
-  \caption{System context of the Snowflake Environment Comparator. Every connection to Snowflake is read-only (\texttt{SELECT}, \texttt{SHOW}, \texttt{DESCRIBE}); all run state is persisted locally in SQLite.}
+  \includegraphics[width=\linewidth]{comparator_architecture.png}
+  \caption{Architecture overview of the Snowflake Environment Comparator, from read-only connection to the source and target accounts, through metadata extraction and local storage, to the comparison engine and the reporting dashboard.}
   \label{fig:sys-context}
 \end{figure}
 
-As shown in Figure~\ref{fig:sys-context}, the comparator runs entirely on a single local host operated by one data engineer. The application connects to two independent Snowflake accounts---the \emph{source} and the \emph{target}---and persists all of its working state in a local SQLite database via SQLAlchemy. This topology was a deliberate design choice. By running locally and reading from Snowflake over the engineer's own authenticated session, the tool requires no server infrastructure, no elevated service account, and no standing footprint inside the ARYZTA environments. The most important property of this context, however, is annotated on the arrows themselves: every interaction with Snowflake is \emph{read-only}. The application issues only \texttt{SELECT}, \texttt{SHOW}, and \texttt{DESCRIBE} statements; it never emits \gls{ddl}, \gls{dml}, \texttt{CALL}, \texttt{USE}, or \texttt{ALTER}. This guarantee is enforced structurally---by a client-side allow-list that rejects any non-read statement before it can be transmitted---which is what makes the tool safe to point directly at the production account.
+As shown in Figure~\ref{fig:sys-context}, the comparator is organised as an end-to-end pipeline of five stages: it connects read-only to the \emph{source} and \emph{target} Snowflake accounts; extracts object metadata through the Snowflake Python connector; persists every run, result, and drift record in a local SQLite store via SQLAlchemy; compares the two environments in its comparison engine; and surfaces the outcome through a reporting dashboard. The application runs on a single local host operated by one data engineer, so it requires no server infrastructure, no elevated service account, and no standing footprint inside the ARYZTA environments. The most important property, highlighted in the security-and-governance band of the diagram, is that every interaction with Snowflake is \emph{read-only}: the application issues only \texttt{SELECT}, \texttt{SHOW}, and \texttt{DESCRIBE} statements and never emits \gls{ddl}, \gls{dml}, \texttt{CALL}, \texttt{USE}, or \texttt{ALTER}. This guarantee is enforced structurally---by a client-side allow-list that rejects any non-read statement before it can be transmitted---which is what makes the tool safe to point directly at the production account.
 
 % ── 2. Data model (ER) ───────────────────────────────────────
 \subsection{Persistence Data Model}
@@ -196,7 +171,7 @@ Where the comparator \emph{diagnoses} drift, the synchronisation strategy \emph{
 \subsection{Design Rationale and Scope}
 \label{subsec:sync-rationale}
 
-Because no robust documentation of the platform existed---itself a consequence of the governance gaps analysed in Chapter~2---the scope of the synchronisation could not be derived from a design specification. Instead, it was defined empirically: the strategy targets \emph{every database touched by the main DAG of Snowflake tasks}, the backbone schedule that performs all processing and populates the platform's outputs. This yielded a well-bounded set of \textbf{14 databases and their schemas}, enumerated in Table~\ref{tab:sync-databases}. Scoping to the main DAG ensures that the synchronisation covers exactly the objects on which the platform's behaviour actually depends, without attempting to reconcile incidental or abandoned objects whose alignment carries no operational value.
+Because no robust documentation of the platform existed---itself a consequence of the governance gaps analysed in Chapter~2---the scope of the synchronisation could not be derived from a design specification. Instead, it was defined empirically: the strategy targets \emph{every database touched by the main DAG of Snowflake tasks}, the backbone schedule that performs all processing and populates the platform's outputs. This yielded a well-bounded set of \textbf{14 databases and their schemas} (the database names are withheld for confidentiality). Scoping to the main DAG ensures that the synchronisation covers exactly the objects on which the platform's behaviour actually depends, without attempting to reconcile incidental or abandoned objects whose alignment carries no operational value.
 
 The chosen mechanism is \textbf{Snowflake Secure Data Sharing}. A share is created \emph{from} \texttt{PROD}, which acts as the provider, and is consumed \emph{by} \texttt{UAT} and \emph{by} \texttt{DEV}, which act as consumers (\texttt{PROD} $\rightarrow$ \texttt{UAT} and \texttt{PROD} $\rightarrow$ \texttt{DEV}). Secure Data Sharing was selected for several reasons that align directly with the design principles of Section~\ref{sec:solution-overview}:
 
@@ -208,59 +183,13 @@ The chosen mechanism is \textbf{Snowflake Secure Data Sharing}. A share is creat
 
 Each of the 14 databases is exposed through its own dedicated share, following the naming convention \texttt{SH\_<DATABASE>}. On the consumer side, each share is mounted as a local database against which the synchronisation procedure reads.
 
-\begin{table}[H]
-  \centering
-  \scriptsize
-  \rowcolors{2}{lightgray}{white}
-  \begin{tabularx}{\textwidth}{@{}c >{\ttfamily}p{4.9cm} >{\ttfamily}p{2.7cm} X@{}}
-    \toprule
-    \rowcolor{ibmblue!15}
-    \normalfont\textbf{\#} & \normalfont\textbf{Database} & \normalfont\textbf{Schema} & \normalfont\textbf{Origin (main-DAG procedure)} \\
-    \midrule
-    1  & TRN\_\_CONTROLLING\_PROFITABILITY & PROFITABILITY & All procedures (home schema) \\
-    2  & LOG\_\_CONTROLLING\_PROFITABILITY & LOG & Logging framework (all procedures) \\
-    3  & CUR\_\_SAPECC & SAP\_ECC & \texttt{LEGAL\_ENTITY\_PRC} \\
-    4  & TRN\_\_DEP\_MIGRATION & MIGRATION & \texttt{LEGAL\_ENTITY\_PRC} \\
-    5  & CUR\_\_EXCELERATOR & EXCELERATOR & \texttt{COGS\_NON\_SAP\_PRC} \\
-    6  & CUR\_\_EXCEL & FILES & \texttt{ACTIVITY\_ANALYSIS\_PRC} \\
-    7  & RAW\_\_EXCEL & FILES & \texttt{COMPANY\_MASTER\_EXCEL\_RELOAD\_PRC} \\
-    8  & CONF\_\_ARYZTA\_GLOBAL\_INTRADAY & GLOBAL & \texttt{CUST\_BUDGET\_FORECAST\_PRC} \\
-    9  & CONF\_\_ARYZTA\_GLOBAL\_INTRADAY & MATERIAL & \texttt{CUSTOMER\_PROFITABILITY\_PRC} \\
-    10 & CONF\_\_CONTROLLING\_PROFITABILITY & GENERAL & \texttt{CUSTOMER\_PROFITABILITY\_PRC} \\
-    11 & RAW\_\_EXCELERATOR & EXCELERATOR & \texttt{MATERIAL\_COST\_LOAD\_PRC} \\
-    12 & SH\_\_OUTBOUND\_\_GROSS\_TO\_NET\_INTRADAY\_\_SH & GROSS\_TO\_NET\_FACTS & \texttt{REV\_QTY\_SOLD\_SAP\_PRC} \\
-    13 & SH\_\_CUR\_\_AFAS\_SNOWFLAKE\_\_SH & AFAS & \texttt{REV\_QTY\_SOLD\_ALL\_PRC} \\
-    14 & CONF\_\_ORGANIZATION\_INTRADAY & ORGANIZATION & \texttt{REV\_QTY\_SOLD\_SAP\_PRC} \\
-    \bottomrule
-  \end{tabularx}
-  \caption{Databases and schemas in synchronisation scope (derived from the main task DAG). Each database is exposed through its own share, following the naming convention \texttt{SH\_<DATABASE>}.}
-  \label{tab:sync-databases}
-\end{table}
-
 \subsection{Share-Based Synchronisation Architecture}
 \label{subsec:sync-arch}
 
 \begin{figure}[H]
   \centering
-  \begin{tikzpicture}[
-      font=\small,
-      node distance=1.4cm and 2.4cm,
-      prod/.style={cylinder, shape border rotate=90, aspect=0.3, draw=green!55!black, very thick, fill=green!8, align=center, minimum height=1.4cm, minimum width=2.6cm},
-      env/.style={cylinder, shape border rotate=90, aspect=0.3, draw=accentblue, thick, fill=snowblue!12, align=center, minimum height=1.3cm, minimum width=2.4cm},
-      proc/.style={rectangle, rounded corners, draw=ibmblue, thick, fill=lightgray, align=center, minimum height=0.9cm, inner sep=4pt},
-      edge/.style={-{Stealth}, thick, darkgray},
-      share/.style={-{Stealth}, very thick, green!55!black},
-    ]
-    \node[prod] (prod) {\textbf{PROD}\\(provider)};
-    \node[proc, right=2.8cm of prod] (task) {Daily \texttt{TASK}\\$\rightarrow$ synchronisation\\procedure};
-    \node[env, above right=0.6cm and 2.4cm of task] (uat) {\textbf{UAT}\\(consumer)};
-    \node[env, below right=0.6cm and 2.4cm of task] (dev) {\textbf{DEV}\\(consumer)};
-
-    \draw[share] (prod) -- node[above, font=\scriptsize, align=center] {Secure Data Share\\\texttt{SH\_<DATABASE>} (read-only)} (task);
-    \draw[edge] (task) -- node[above, sloped, font=\scriptsize] {clone / refresh} (uat);
-    \draw[edge] (task) -- node[below, sloped, font=\scriptsize] {clone / refresh} (dev);
-  \end{tikzpicture}
-  \caption{Share-based synchronisation architecture. \texttt{PROD} provides a per-database read-only share; a daily task invokes the synchronisation procedure, which refreshes the corresponding schemas in the \texttt{UAT} and \texttt{DEV} consumer accounts.}
+  \includegraphics[width=\linewidth]{sync_strategy_architecture.png}
+  \caption{Multi-environment synchronisation strategy. \texttt{PROD} is the authoritative provider; its in-scope databases are exposed as read-only Secure Data Shares, and a daily orchestration task drives the synchronisation procedure that realigns the \texttt{UAT} and \texttt{DEV} consumer accounts.}
   \label{fig:share-flow}
 \end{figure}
 
